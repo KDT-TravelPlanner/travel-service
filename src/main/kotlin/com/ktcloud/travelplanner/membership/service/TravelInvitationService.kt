@@ -13,7 +13,7 @@ import com.ktcloud.travelplanner.membership.model.TravelInvitationAction
 import com.ktcloud.travelplanner.membership.model.TravelMember
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.repository.UserRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -26,7 +26,7 @@ import java.util.UUID
 class TravelInvitationService(
 	private val travelRepository: TravelRepository,
 	private val travelMemberRepository: TravelMemberRepository,
-	private val userRepository: UserRepository,
+	private val userLookupPort: UserLookupPort,
 	@Qualifier("utcClock") private val clock: Clock,
 ) {
 	@Transactional
@@ -100,7 +100,7 @@ class TravelInvitationService(
 			throw InvitationAccessDeniedException()
 		}
 
-		val invitee = userRepository.findByNickname(request.nickname)
+		val invitee = userLookupPort.findByNickname(request.nickname)
 			?: throw InvitationTargetNotFoundException()
 		val inviteeId = requireNotNull(invitee.id)
 		if (inviteeId == inviterId) {

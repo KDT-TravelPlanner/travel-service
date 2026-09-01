@@ -7,8 +7,8 @@ import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -25,8 +25,8 @@ import kotlin.test.assertTrue
 class TravelMemberQueryServiceTest {
         private val travelRepository = mock(TravelRepository::class.java)
         private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-        private val userRepository = mock(UserRepository::class.java)
-        private val service = TravelMemberQueryService(travelRepository, travelMemberRepository, userRepository)
+        private val userLookupPort = mock(UserLookupPort::class.java)
+        private val service = TravelMemberQueryService(travelRepository, travelMemberRepository, userLookupPort)
         @Test
         fun `owner and accepted members are combined with owner first`() {
                 val owner = mockUser(OWNER_ID, "owner")

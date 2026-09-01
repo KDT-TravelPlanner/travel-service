@@ -10,8 +10,8 @@ import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.testsupport.TestFixtures
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.any
@@ -32,11 +32,11 @@ import kotlin.test.assertSame
 class TravelInvitationServiceTest {
 	private val travelRepository = mock(TravelRepository::class.java)
 	private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-	private val userRepository = mock(UserRepository::class.java)
+	private val userLookupPort = mock(UserLookupPort::class.java)
 	private val service = TravelInvitationService(
 		travelRepository,
 		travelMemberRepository,
-		userRepository,
+		userLookupPort,
 		TestFixtures.FIXED_CLOCK,
 	)
 
@@ -221,7 +221,7 @@ class TravelInvitationServiceTest {
 		val travel = travel(owner)
 		lateinit var savedMember: TravelMember
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
-		`when`(userRepository.findByNickname("invitee")).thenReturn(invitee)
+		`when`(userLookupPort.findByNickname("invitee")).thenReturn(invitee)
 		`when`(travelMemberRepository.existsByTravelAndUser(TRAVEL_ID, INVITEE_ID)).thenReturn(false)
 		`when`(travelMemberRepository.save(any(TravelMember::class.java))).thenAnswer {
 			it.getArgument<TravelMember>(0).also { member -> savedMember = member }
@@ -245,7 +245,7 @@ class TravelInvitationServiceTest {
 			service.createInvitation(TRAVEL_ID, INVITEE_ID, request())
 		}
 
-		verifyNoInteractions(userRepository, travelMemberRepository)
+		verifyNoInteractions(userLookupPort, travelMemberRepository)
 	}
 
 	@Test
@@ -253,14 +253,14 @@ class TravelInvitationServiceTest {
 		val owner = mockUser(OWNER_ID)
 		val travel = travel(owner)
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
-		`when`(userRepository.findByNickname("invitee")).thenReturn(owner)
+		`when`(userLookupPort.findByNickname("invitee")).thenReturn(owner)
 
 		assertThrows<SelfInvitationException> {
 			service.createInvitation(TRAVEL_ID, OWNER_ID, request())
 		}
 
 		val invitee = mockUser(INVITEE_ID)
-		`when`(userRepository.findByNickname("invitee")).thenReturn(invitee)
+		`when`(userLookupPort.findByNickname("invitee")).thenReturn(invitee)
 		`when`(travelMemberRepository.existsByTravelAndUser(TRAVEL_ID, INVITEE_ID)).thenReturn(true)
 
 		assertThrows<DuplicateInvitationException> {

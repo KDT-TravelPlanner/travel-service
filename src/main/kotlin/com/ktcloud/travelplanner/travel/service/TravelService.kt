@@ -10,7 +10,7 @@ import com.ktcloud.travelplanner.travel.dto.TravelReadAccessResponse
 import com.ktcloud.travelplanner.travel.dto.TravelSummaryResponse
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.repository.UserRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -24,7 +24,7 @@ import java.util.UUID
 class TravelService(
 	private val travelRepository: TravelRepository,
 	private val travelMemberRepository: TravelMemberRepository,
-	private val userRepository: UserRepository,
+	private val userLookupPort: UserLookupPort,
 	@Qualifier("utcClock") private val clock: Clock,
 ) {
 	@Transactional
@@ -32,7 +32,7 @@ class TravelService(
 		ownerId: UUID,
 		request: TravelCreateRequest,
 	): TravelCreateResponse {
-		val owner = userRepository.findById(ownerId).orElseThrow(::TravelOwnerNotFoundException)
+		val owner = userLookupPort.findById(ownerId) ?: throw TravelOwnerNotFoundException()
 		val travel = Travel(
 			owner = owner,
 			title = request.title,
