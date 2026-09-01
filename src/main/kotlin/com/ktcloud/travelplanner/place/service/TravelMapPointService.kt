@@ -11,10 +11,11 @@ import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
 
 @Service
-class TravelMapPointService(
+class TravelMapPointService @Autowired constructor(
         private val mapsTravelAccessPort: MapsTravelAccessPort,
         private val timelineItemRepository: TimelineItemRepository,
         private val placeLocationService: PlaceLocationService,
