@@ -6,12 +6,13 @@ import com.ktcloud.travelplanner.membership.model.InvitationStatus
 import com.ktcloud.travelplanner.membership.model.TravelMember
 import com.ktcloud.travelplanner.membership.model.TravelInvitationAction
 import com.ktcloud.travelplanner.membership.model.TravelRole
+import com.ktcloud.travelplanner.membership.port.MembershipUserDisplay
+import com.ktcloud.travelplanner.membership.port.MembershipUserPort
+import com.ktcloud.travelplanner.membership.port.MembershipUserReference
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.testsupport.TestFixtures
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.any
@@ -27,16 +28,15 @@ import java.time.LocalDate
 import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class TravelInvitationServiceTest {
 	private val travelRepository = mock(TravelRepository::class.java)
 	private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-	private val userLookupPort = mock(UserLookupPort::class.java)
+	private val membershipUserPort = mock(MembershipUserPort::class.java)
 	private val service = TravelInvitationService(
 		travelRepository,
 		travelMemberRepository,
-		userLookupPort,
+		membershipUserPort,
 		TestFixtures.FIXED_CLOCK,
 	)
 
@@ -150,12 +150,10 @@ class TravelInvitationServiceTest {
 
 	@Test
 	fun `received invitations are queried by user and status and mapped with summaries`() {
-		val inviter = mockUser(OWNER_ID, "owner", "https://example.com/owner.png")
-		val invitee = mockUser(INVITEE_ID)
 		val member = TravelMember(
 			id = INVITATION_ID,
-			travel = travel(inviter),
-			user = invitee,
+			travel = travel(),
+			userId = INVITEE_ID,
 			role = TravelRole.READ_ONLY,
 			invitedAt = INVITED_AT,
 		)
@@ -167,6 +165,8 @@ class TravelInvitationServiceTest {
 				pageable,
 			),
 		).thenReturn(PageImpl(listOf(member), pageable, 3))
+		`when`(membershipUserPort.findDisplay(OWNER_ID))
+			.thenReturn(MembershipUserDisplay(OWNER_ID, "owner", "https://example.com/owner.png", deleted = false))
 
 		val response = service.getReceivedInvitations(
 			INVITEE_ID,
@@ -216,12 +216,10 @@ class TravelInvitationServiceTest {
 
 	@Test
 	fun `owner creates pending invitation for nickname with requested role`() {
-		val owner = mockUser(OWNER_ID)
-		val invitee = mockUser(INVITEE_ID)
-		val travel = travel(owner)
+		val travel = travel()
 		lateinit var savedMember: TravelMember
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
-		`when`(userLookupPort.findByNickname("invitee")).thenReturn(invitee)
+		`when`(membershipUserPort.findByNickname("invitee")).thenReturn(MembershipUserReference(INVITEE_ID))
 		`when`(travelMemberRepository.existsByTravelAndUser(TRAVEL_ID, INVITEE_ID)).thenReturn(false)
 		`when`(travelMemberRepository.save(any(TravelMember::class.java))).thenAnswer {
 			it.getArgument<TravelMember>(0).also { member -> savedMember = member }
@@ -230,37 +228,35 @@ class TravelInvitationServiceTest {
 		val response = service.createInvitation(TRAVEL_ID, OWNER_ID, request())
 
 		assertEquals(savedMember.id, response.invitationId)
-		assertSame(travel, savedMember.travel)
-		assertSame(invitee, savedMember.user)
+		assertEquals(travel.id, savedMember.travel.id)
+		assertEquals(INVITEE_ID, savedMember.userId)
 		assertEquals(TravelRole.READ_WRITE, savedMember.role)
 		assertEquals(TestFixtures.FIXED_INSTANT, savedMember.invitedAt)
 	}
 
 	@Test
 	fun `non owner cannot resolve target or create invitation`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 
 		assertThrows<InvitationAccessDeniedException> {
 			service.createInvitation(TRAVEL_ID, INVITEE_ID, request())
 		}
 
-		verifyNoInteractions(userLookupPort, travelMemberRepository)
+		verifyNoInteractions(membershipUserPort, travelMemberRepository)
 	}
 
 	@Test
 	fun `owner cannot invite self or existing membership`() {
-		val owner = mockUser(OWNER_ID)
-		val travel = travel(owner)
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
-		`when`(userLookupPort.findByNickname("invitee")).thenReturn(owner)
+		`when`(membershipUserPort.findByNickname("invitee")).thenReturn(MembershipUserReference(OWNER_ID))
 
 		assertThrows<SelfInvitationException> {
 			service.createInvitation(TRAVEL_ID, OWNER_ID, request())
 		}
 
-		val invitee = mockUser(INVITEE_ID)
-		`when`(userLookupPort.findByNickname("invitee")).thenReturn(invitee)
+		`when`(membershipUserPort.findByNickname("invitee")).thenReturn(MembershipUserReference(INVITEE_ID))
 		`when`(travelMemberRepository.existsByTravelAndUser(TRAVEL_ID, INVITEE_ID)).thenReturn(true)
 
 		assertThrows<DuplicateInvitationException> {
@@ -274,25 +270,15 @@ class TravelInvitationServiceTest {
 
 	private fun invitation(): TravelMember = TravelMember(
 		id = INVITATION_ID,
-		travel = travel(mockUser(OWNER_ID)),
-		user = mockUser(INVITEE_ID),
+		travel = travel(),
+		userId = INVITEE_ID,
 		role = TravelRole.READ_WRITE,
 		invitedAt = INVITED_AT,
 	)
 
-	private fun mockUser(
-		id: UUID,
-		nickname: String? = null,
-		profileImageUrl: String? = null,
-	): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-		`when`(it.nickname).thenReturn(nickname)
-		`when`(it.profileImageUrl).thenReturn(profileImageUrl)
-	}
-
-	private fun travel(owner: User): Travel = Travel(
+	private fun travel(ownerId: UUID = OWNER_ID): Travel = Travel(
 		id = TRAVEL_ID,
-		owner = owner,
+		ownerId = ownerId,
 		title = "초대 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-02"),

@@ -8,9 +8,6 @@ import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.notNullValue
@@ -39,7 +36,6 @@ import kotlin.test.assertTrue
 @Transactional
 class TravelInvitationResponseControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
@@ -122,32 +118,25 @@ class TravelInvitationResponseControllerIntegrationTest(
 
 	private fun respond(
 		invitationId: UUID,
-		user: User,
+		userId: UUID,
 		action: String,
 	) = mockMvc.patch("/api/v1/travel-invitations/$invitationId") {
-		header(HttpHeaders.AUTHORIZATION, bearer(user))
+		header(HttpHeaders.AUTHORIZATION, bearer(userId))
 		contentType = MediaType.APPLICATION_JSON
 		content = """{"action":"$action"}"""
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "invitation-response-${UUID.randomUUID()}",
-		).also {
-			it.completeProfile(nickname, null, null)
-		},
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
 	private fun saveTravel(
-		owner: User,
+		ownerId: UUID,
 		title: String,
 	): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = title,
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-02"),
@@ -156,11 +145,11 @@ class TravelInvitationResponseControllerIntegrationTest(
 
 	private fun saveInvitation(
 		travel: Travel,
-		invitee: User,
+		invitee: UUID,
 	): TravelMember = travelMemberRepository.saveAndFlush(
 		TravelMember(
 			travel = travel,
-			user = invitee,
+			userId = invitee,
 			role = TravelRole.READ_WRITE,
 			invitedAt = Instant.parse("2026-07-01T00:00:00Z"),
 		),

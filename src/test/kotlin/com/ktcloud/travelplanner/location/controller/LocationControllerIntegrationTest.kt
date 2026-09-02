@@ -6,9 +6,6 @@ import com.ktcloud.travelplanner.location.model.Country
 import com.ktcloud.travelplanner.location.repository.CityRepository
 import com.ktcloud.travelplanner.location.repository.CountryRepository
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -33,7 +30,6 @@ class LocationControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
 	@Autowired private val countryRepository: CountryRepository,
 	@Autowired private val cityRepository: CityRepository,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
 ) {
 	private lateinit var accessToken: String
@@ -62,10 +58,7 @@ class LocationControllerIntegrationTest(
 		cityRepository.save(City(12, japan, "숨김 도시", "Hidden City", displayOrder = 2, isActive = false))
 		cityRepository.save(City(20, korea, "서울", "Seoul"))
 
-		val user = userRepository.saveAndFlush(
-			User(OAuthProvider.GOOGLE, "location-${UUID.randomUUID()}"),
-		)
-		accessToken = jwtTokenService.issueAccessToken(requireNotNull(user.id)).value
+		accessToken = jwtTokenService.issueAccessToken(UUID.randomUUID()).value
 	}
 
 	@Test

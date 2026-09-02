@@ -10,7 +10,6 @@ import com.ktcloud.travelplanner.travel.dto.TravelReadAccessResponse
 import com.ktcloud.travelplanner.travel.dto.TravelSummaryResponse
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -24,17 +23,17 @@ import java.util.UUID
 class TravelService(
 	private val travelRepository: TravelRepository,
 	private val travelMemberRepository: TravelMemberRepository,
-	private val userLookupPort: UserLookupPort,
 	@Qualifier("utcClock") private val clock: Clock,
 ) {
+	// 생성 시 오너 존재 확인을 위해 Identity를 호출하지 않는다(SERVICE_COMMUNICATION_BOUNDARIES 3).
+	// 인증된 JWT의 sub UUID를 그대로 ownerId로 쓴다 — 필터가 서명을 이미 검증했다.
 	@Transactional
 	fun createTravel(
 		ownerId: UUID,
 		request: TravelCreateRequest,
 	): TravelCreateResponse {
-		val owner = userLookupPort.findById(ownerId) ?: throw TravelOwnerNotFoundException()
 		val travel = Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = request.title,
 			startDate = request.startDate,
 			endDate = request.endDate,
@@ -82,7 +81,7 @@ class TravelService(
 	): TravelReadAccessResponse {
 		val travel = travelRepository.findById(travelId).orElse(null)
 			?: return TravelReadAccessResponse(travelId, exists = false, hasReadAccess = false)
-		val hasReadAccess = travel.owner.id == requesterId ||
+		val hasReadAccess = travel.ownerId == requesterId ||
 			travelMemberRepository.findAcceptedRole(travelId, requesterId) != null
 		return TravelReadAccessResponse(travelId, exists = true, hasReadAccess = hasReadAccess)
 	}
@@ -107,15 +106,13 @@ class TravelService(
 		if (travel.isDeleted) {
 			throw TravelNotFoundException()
 		}
-		if (travel.owner.id != requesterId) {
+		if (travel.ownerId != requesterId) {
 			throw TravelDeleteAccessDeniedException()
 		}
 		travel.softDelete(Instant.now(clock))
 		travelRepository.saveAndFlush(travel)
 	}
 }
-
-class TravelOwnerNotFoundException : DomainException(ErrorCode.RESOURCE_NOT_FOUND)
 
 class TravelNotFoundException : DomainException(ErrorCode.RESOURCE_NOT_FOUND)
 

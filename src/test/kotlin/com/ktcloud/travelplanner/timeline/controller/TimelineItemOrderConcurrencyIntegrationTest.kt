@@ -9,9 +9,6 @@ import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.timeline.service.TimelineItemOrderUpdateService
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -34,7 +31,6 @@ import kotlin.test.assertTrue
 @Import(TestcontainersConfiguration::class)
 class TimelineItemOrderConcurrencyIntegrationTest(
 	@Autowired private val timelineItemOrderUpdateService: TimelineItemOrderUpdateService,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val timelineItemRepository: TimelineItemRepository,
 	@Autowired private val transactionTemplate: TransactionTemplate,
@@ -68,7 +64,7 @@ class TimelineItemOrderConcurrencyIntegrationTest(
 					transactionTemplate.executeWithoutResult {
 						timelineItemOrderUpdateService.updateTimelineItemOrder(
 								travelId = travel.id,
-								requesterId = requireNotNull(owner.id),
+								requesterId = owner,
 								request = request,
 							)
 					}
@@ -124,7 +120,7 @@ class TimelineItemOrderConcurrencyIntegrationTest(
 					transactionTemplate.executeWithoutResult {
 						timelineItemOrderUpdateService.updateTimelineItemOrder(
 							travelId = travel.id,
-							requesterId = requireNotNull(owner.id),
+							requesterId = owner,
 							request = request,
 						)
 					}
@@ -151,16 +147,11 @@ class TimelineItemOrderConcurrencyIntegrationTest(
 		assertEquals(items.asReversed().map(TimelineItem::id), persistedIds)
 	}
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "timeline-order-concurrency-${UUID.randomUUID()}",
-		).also { it.completeProfile(nickname, null, null) },
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-	private fun saveTravel(owner: User): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = "동시성 순서 테스트",
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-03"),

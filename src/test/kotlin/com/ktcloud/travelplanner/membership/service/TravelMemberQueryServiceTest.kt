@@ -4,11 +4,11 @@ import com.ktcloud.travelplanner.membership.model.TravelInvitationAction
 import com.ktcloud.travelplanner.membership.model.TravelMember
 import com.ktcloud.travelplanner.membership.model.TravelPermission
 import com.ktcloud.travelplanner.membership.model.TravelRole
+import com.ktcloud.travelplanner.membership.port.MembershipUserDisplay
+import com.ktcloud.travelplanner.membership.port.MembershipUserPort
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -25,14 +25,21 @@ import kotlin.test.assertTrue
 class TravelMemberQueryServiceTest {
         private val travelRepository = mock(TravelRepository::class.java)
         private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-        private val userLookupPort = mock(UserLookupPort::class.java)
-        private val service = TravelMemberQueryService(travelRepository, travelMemberRepository, userLookupPort)
+        private val membershipUserPort = mock(MembershipUserPort::class.java)
+        private val service = TravelMemberQueryService(travelRepository, travelMemberRepository, membershipUserPort)
+
+        init {
+                for (id in listOf(OWNER_ID, READ_ONLY_ID, READ_WRITE_ID, OUTSIDER_ID)) {
+                        `when`(membershipUserPort.findDisplay(id))
+                                .thenReturn(MembershipUserDisplay(id, "nick-$id", null, deleted = false))
+                }
+        }
+
         @Test
         fun `owner and accepted members are combined with owner first`() {
-                val owner = mockUser(OWNER_ID, "owner")
-                val travel = travel(owner)
-                val readOnlyMember = acceptedMember(travel, mockUser(READ_ONLY_ID, "reader"), TravelRole.READ_ONLY)
-                val readWriteMember = acceptedMember(travel, mockUser(READ_WRITE_ID, "writer"), TravelRole.READ_WRITE)
+                val travel = travel()
+                val readOnlyMember = acceptedMember(travel, READ_ONLY_ID, TravelRole.READ_ONLY)
+                val readWriteMember = acceptedMember(travel, READ_WRITE_ID, TravelRole.READ_WRITE)
                 `when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
                 `when`(travelMemberRepository.findVisibleMembers(TRAVEL_ID))
                         .thenReturn(listOf(readOnlyMember, readWriteMember))
@@ -49,9 +56,8 @@ class TravelMemberQueryServiceTest {
         }
         @Test
         fun `pending invitation is included with pending status`() {
-                val owner = mockUser(OWNER_ID, "owner")
-                val travel = travel(owner)
-                val pendingMember = pendingMember(travel, mockUser(READ_ONLY_ID, "invitee"), TravelRole.READ_ONLY)
+                val travel = travel()
+                val pendingMember = pendingMember(travel, READ_ONLY_ID, TravelRole.READ_ONLY)
                 `when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
                 `when`(travelMemberRepository.findVisibleMembers(TRAVEL_ID)).thenReturn(listOf(pendingMember))
                 val response = service.getTravelMembers(TRAVEL_ID, OWNER_ID)
@@ -62,7 +68,7 @@ class TravelMemberQueryServiceTest {
         }
         @Test
         fun `accepted read only or read write member can query list`() {
-                val travel = travel(mockUser(OWNER_ID, "owner"))
+                val travel = travel()
                 `when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
                 `when`(travelMemberRepository.findAcceptedRole(TRAVEL_ID, READ_ONLY_ID)).thenReturn(TravelRole.READ_ONLY)
                 `when`(travelMemberRepository.findVisibleMembers(TRAVEL_ID)).thenReturn(emptyList())
@@ -72,7 +78,7 @@ class TravelMemberQueryServiceTest {
         }
         @Test
         fun `user without accepted membership cannot query list`() {
-                val travel = travel(mockUser(OWNER_ID, "owner"))
+                val travel = travel()
                 `when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
                 `when`(travelMemberRepository.findAcceptedRole(TRAVEL_ID, OUTSIDER_ID)).thenReturn(null)
                 assertThrows<TravelMemberAccessDeniedException> {
@@ -83,11 +89,11 @@ class TravelMemberQueryServiceTest {
 
         private fun acceptedMember(
                 travel: Travel,
-                user: User,
+                userId: UUID,
                 role: TravelRole,
         ): TravelMember = TravelMember(
                 travel = travel,
-                user = user,
+                userId = userId,
                 role = role,
                 invitedAt = INVITED_AT,
         ).also {
@@ -95,24 +101,17 @@ class TravelMemberQueryServiceTest {
         }
         private fun pendingMember(
                 travel: Travel,
-                user: User,
+                userId: UUID,
                 role: TravelRole,
         ): TravelMember = TravelMember(
                 travel = travel,
-                user = user,
+                userId = userId,
                 role = role,
                 invitedAt = INVITED_AT,
         )
-        private fun mockUser(
-                id: UUID,
-                nickname: String,
-        ): User = mock(User::class.java).also {
-                `when`(it.id).thenReturn(id)
-                `when`(it.nickname).thenReturn(nickname)
-        }
-        private fun travel(owner: User): Travel = Travel(
+        private fun travel(ownerId: UUID = OWNER_ID): Travel = Travel(
                 id = TRAVEL_ID,
-                owner = owner,
+                ownerId = ownerId,
                 title = "참여자 여행",
                 startDate = LocalDate.parse("2026-08-01"),
                 endDate = LocalDate.parse("2026-08-02"),

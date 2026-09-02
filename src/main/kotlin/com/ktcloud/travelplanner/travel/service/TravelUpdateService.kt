@@ -93,7 +93,7 @@ class TravelUpdateService(
                 travel: Travel,
                 requesterId: UUID,
         ): TravelPermission {
-                if (travel.owner.id == requesterId) {
+                if (travel.ownerId == requesterId) {
                         return TravelPermission.OWNER
                 }
                 if (travelMemberRepository.findAcceptedRole(travel.id, requesterId) != TravelRole.READ_WRITE) {

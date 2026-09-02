@@ -9,9 +9,6 @@ import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
@@ -37,7 +34,6 @@ import java.util.UUID
 @Transactional
 class TravelListControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val countryRepository: CountryRepository,
@@ -60,7 +56,7 @@ class TravelListControllerIntegrationTest(
 		travelMemberRepository.saveAndFlush(
 			TravelMember(
 				travel = pending,
-				user = requester,
+				userId = requester,
 				role = TravelRole.READ_ONLY,
 				invitedAt = Instant.parse("2026-01-01T00:00:00Z"),
 			),
@@ -313,13 +309,13 @@ class TravelListControllerIntegrationTest(
 
 	private fun acceptMembership(
 		travel: Travel,
-		user: User,
+		userId: UUID,
 		role: TravelRole,
 	) {
 		val member = travelMemberRepository.saveAndFlush(
 			TravelMember(
 				travel = travel,
-				user = user,
+				userId = userId,
 				role = role,
 				invitedAt = Instant.parse("2026-01-01T00:00:00Z"),
 			),
@@ -344,18 +340,13 @@ class TravelListControllerIntegrationTest(
 		)
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "list-${UUID.randomUUID()}",
-		).also { it.completeProfile(nickname, null, null) },
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
 	private fun saveTravel(
-		owner: User,
+		ownerId: UUID,
 		title: String,
 		travelId: UUID,
 		startDate: LocalDate = LocalDate.parse("2026-08-01"),
@@ -363,7 +354,7 @@ class TravelListControllerIntegrationTest(
 	): Travel = travelRepository.saveAndFlush(
 		Travel(
 			id = travelId,
-			owner = owner,
+			ownerId = ownerId,
 			title = title,
 			startDate = startDate,
 			endDate = endDate,

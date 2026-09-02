@@ -5,6 +5,7 @@ import com.ktcloud.travelplanner.global.exception.ErrorCode
 import com.ktcloud.travelplanner.membership.dto.TravelMemberResponse
 import com.ktcloud.travelplanner.membership.dto.TravelMemberRoleUpdateRequest
 import com.ktcloud.travelplanner.membership.model.InvitationStatus
+import com.ktcloud.travelplanner.membership.port.MembershipUserPort
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
 import org.springframework.stereotype.Service
@@ -15,6 +16,7 @@ import java.util.UUID
 class TravelMemberService(
 	private val travelRepository: TravelRepository,
 	private val travelMemberRepository: TravelMemberRepository,
+	private val membershipUserPort: MembershipUserPort,
 ) {
 	@Transactional
 	fun leaveTravel(
@@ -22,7 +24,7 @@ class TravelMemberService(
 		requesterId: UUID,
 	) {
 		val travel = travelRepository.findById(travelId).orElseThrow(::MemberTravelNotFoundException)
-		if (travel.owner.id == requesterId) {
+		if (travel.ownerId == requesterId) {
 			throw TravelOwnerLeaveException()
 		}
 
@@ -41,10 +43,10 @@ class TravelMemberService(
 		requesterId: UUID,
 	) {
 		val travel = travelRepository.findById(travelId).orElseThrow(::MemberTravelNotFoundException)
-		if (travel.owner.id != requesterId) {
+		if (travel.ownerId != requesterId) {
 			throw TravelMemberAccessDeniedException()
 		}
-		if (travel.owner.id == memberId) {
+		if (travel.ownerId == memberId) {
 			throw TravelOwnerRemovalException()
 		}
 
@@ -64,10 +66,10 @@ class TravelMemberService(
 		request: TravelMemberRoleUpdateRequest,
 	): TravelMemberResponse {
 		val travel = travelRepository.findById(travelId).orElseThrow(::MemberTravelNotFoundException)
-		if (travel.owner.id != requesterId) {
+		if (travel.ownerId != requesterId) {
 			throw TravelMemberAccessDeniedException()
 		}
-		if (travel.owner.id == memberId) {
+		if (travel.ownerId == memberId) {
 			throw TravelOwnerRoleUpdateException()
 		}
 
@@ -77,7 +79,8 @@ class TravelMemberService(
 			throw PendingTravelMemberRoleUpdateException()
 		}
 		member.updateRole(request.role)
-		return TravelMemberResponse.fromMember(travelMemberRepository.save(member))
+		val saved = travelMemberRepository.save(member)
+		return TravelMemberResponse.fromMember(saved, membershipUserPort.findDisplay(saved.userId))
 	}
 }
 

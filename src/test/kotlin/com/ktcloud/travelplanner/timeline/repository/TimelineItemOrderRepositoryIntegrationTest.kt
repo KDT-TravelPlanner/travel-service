@@ -130,14 +130,6 @@ class TimelineItemOrderRepositoryIntegrationTest : ContainerIntegrationTestSuppo
 		val travelId = UUID.randomUUID()
 		val now = OffsetDateTime.of(2026, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)
 		jdbcTemplate.update(
-			"INSERT INTO user_table (id, provider, provider_user_id, profile_completed, created_at, updated_at) " +
-				"VALUES (?, 'GOOGLE', ?, FALSE, ?, ?)",
-			ownerId,
-			"timeline-order-repository-$ownerId",
-			now,
-			now,
-		)
-		jdbcTemplate.update(
 			"INSERT INTO planners_table " +
 				"(id, owner_id, title, start_date, end_date, created_at, updated_at) " +
 				"VALUES (?, ?, 'Repository order test', '2026-08-01', '2026-08-03', ?, ?)",

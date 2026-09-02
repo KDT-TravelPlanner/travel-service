@@ -37,7 +37,7 @@ data class TravelDetailResponse(
                         purposes: Set<TravelPurpose>,
                 ): TravelDetailResponse = TravelDetailResponse(
                         travelId = travel.id,
-                        ownerId = requireNotNull(travel.owner.id),
+                        ownerId = requireNotNull(travel.ownerId),
                         title = travel.title,
                         startDate = travel.startDate,
                         endDate = travel.endDate,

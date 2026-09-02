@@ -12,7 +12,6 @@ import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.PlannerPurposeRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
 import com.ktcloud.travelplanner.common.web.PatchField
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -45,8 +44,7 @@ class TravelUpdateServiceTest {
 
 	@Test
 	fun `owner applies partial update while absent fields keep current values`() {
-		val owner = mockUser(OWNER_ID)
-		val travel = travel(owner)
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findAllByTravelIdOrderByDayNumberAscVisitOrderAsc(TRAVEL_ID))
 			.thenReturn(emptyList())
@@ -74,7 +72,7 @@ class TravelUpdateServiceTest {
 
 	@Test
 	fun `only accepted read write participant can update`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(travelMemberRepository.findAcceptedRole(TRAVEL_ID, MEMBER_ID)).thenReturn(TravelRole.READ_WRITE)
 		`when`(timelineItemRepository.findAllByTravelIdOrderByDayNumberAscVisitOrderAsc(TRAVEL_ID))
@@ -91,7 +89,7 @@ class TravelUpdateServiceTest {
 
 	@Test
 	fun `stale version and incompatible timeline dates are conflicts`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		assertThrows<TravelVersionConflictException> {
 			service.updateTravel(TRAVEL_ID, OWNER_ID, TravelUpdateRequest(version = 1))
@@ -115,7 +113,7 @@ class TravelUpdateServiceTest {
 
 	@Test
 	fun `concurrent jpa update is mapped to version conflict`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findAllByTravelIdOrderByDayNumberAscVisitOrderAsc(TRAVEL_ID))
 			.thenReturn(emptyList())
@@ -126,13 +124,9 @@ class TravelUpdateServiceTest {
 		}
 	}
 
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-	}
-
-	private fun travel(owner: User): Travel = mock(Travel::class.java).also {
+	private fun travel(ownerId: UUID = OWNER_ID): Travel = mock(Travel::class.java).also {
 		`when`(it.id).thenReturn(TRAVEL_ID)
-		`when`(it.owner).thenReturn(owner)
+		`when`(it.ownerId).thenReturn(ownerId)
 		`when`(it.title).thenReturn("수정 전 여행")
 		`when`(it.startDate).thenReturn(START_DATE)
 		`when`(it.endDate).thenReturn(END_DATE)

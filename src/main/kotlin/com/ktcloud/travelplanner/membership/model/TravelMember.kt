@@ -1,7 +1,6 @@
 package com.ktcloud.travelplanner.membership.model
 
 import com.ktcloud.travelplanner.travel.model.Travel
-import com.ktcloud.travelplanner.user.model.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -24,9 +23,9 @@ class TravelMember(
 	@JoinColumn(name = "planner_id", nullable = false)
 	val travel: Travel,
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "user_id", nullable = false)
-	val user: User,
+	// User 엔티티 관계 대신 Identity 사용자 UUID만 보관한다(SERVICE_COMMUNICATION_BOUNDARIES 3).
+	@Column(name = "user_id", nullable = false)
+	val userId: UUID,
 
 	role: TravelRole,
 

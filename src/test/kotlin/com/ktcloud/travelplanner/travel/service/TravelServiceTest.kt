@@ -8,9 +8,6 @@ import com.ktcloud.travelplanner.travel.dto.TravelCreateRequest
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelListRow
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.any
@@ -27,21 +24,17 @@ import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class TravelServiceTest {
 	private val travelRepository = mock(TravelRepository::class.java)
 	private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-	private val userLookupPort = mock(UserLookupPort::class.java)
-	private val service = TravelService(travelRepository, travelMemberRepository, userLookupPort, TestFixtures.FIXED_CLOCK)
+	private val service = TravelService(travelRepository, travelMemberRepository, TestFixtures.FIXED_CLOCK)
 
 	@Test
-	fun `uses authenticated user as owner and returns generated travel id`() {
+	fun `uses authenticated user id as owner and returns generated travel id`() {
 		val ownerId = UUID.randomUUID()
-		val owner = User(OAuthProvider.GOOGLE, "service-owner")
 		lateinit var savedTravel: Travel
-		`when`(userLookupPort.findById(ownerId)).thenReturn(owner)
 		`when`(travelRepository.save(any(Travel::class.java))).thenAnswer {
 			it.getArgument<Travel>(0).also { travel -> savedTravel = travel }
 		}
@@ -49,21 +42,9 @@ class TravelServiceTest {
 		val response = service.createTravel(ownerId, request())
 
 		assertEquals(savedTravel.id, response.travelId)
-		assertSame(owner, savedTravel.owner)
+		assertEquals(ownerId, savedTravel.ownerId)
 		assertEquals("도쿄 여행", savedTravel.title)
 		assertEquals(4, savedTravel.travelDays)
-	}
-
-	@Test
-	fun `rejects missing authenticated owner before saving`() {
-		val ownerId = UUID.randomUUID()
-		`when`(userLookupPort.findById(ownerId)).thenReturn(null)
-
-		assertThrows<TravelOwnerNotFoundException> {
-			service.createTravel(ownerId, request())
-		}
-
-		verifyNoInteractions(travelRepository)
 	}
 
 	@Test
@@ -132,9 +113,7 @@ class TravelServiceTest {
 
 	@Test
 	fun `owner soft deletes travel at UTC clock time`() {
-		val owner = mock(User::class.java)
-		val travel = travel(owner)
-		`when`(owner.id).thenReturn(TestFixtures.USER_ID)
+		val travel = travel(TestFixtures.USER_ID)
 		`when`(travelRepository.findById(travel.id)).thenReturn(Optional.of(travel))
 		`when`(travelRepository.saveAndFlush(travel)).thenReturn(travel)
 
@@ -152,9 +131,7 @@ class TravelServiceTest {
 			service.deleteTravel(travelId, TestFixtures.USER_ID)
 		}
 
-		val owner = mock(User::class.java)
-		val travel = travel(owner)
-		`when`(owner.id).thenReturn(UUID.randomUUID())
+		val travel = travel(UUID.randomUUID())
 		`when`(travelRepository.findById(travel.id)).thenReturn(Optional.of(travel))
 		assertThrows<TravelDeleteAccessDeniedException> {
 			service.deleteTravel(travel.id, TestFixtures.USER_ID)
@@ -176,9 +153,7 @@ class TravelServiceTest {
 
 	@Test
 	fun `checkReadAccess grants the owner access without a member lookup`() {
-		val owner = mock(User::class.java)
-		val travel = travel(owner)
-		`when`(owner.id).thenReturn(TestFixtures.USER_ID)
+		val travel = travel(TestFixtures.USER_ID)
 		`when`(travelRepository.findById(travel.id)).thenReturn(Optional.of(travel))
 
 		val response = service.checkReadAccess(travel.id, TestFixtures.USER_ID)
@@ -190,11 +165,9 @@ class TravelServiceTest {
 
 	@Test
 	fun `checkReadAccess grants an accepted member access and denies everyone else`() {
-		val owner = mock(User::class.java)
-		val travel = travel(owner)
+		val travel = travel(UUID.randomUUID())
 		val member = UUID.randomUUID()
 		val stranger = UUID.randomUUID()
-		`when`(owner.id).thenReturn(UUID.randomUUID())
 		`when`(travelRepository.findById(travel.id)).thenReturn(Optional.of(travel))
 		`when`(travelMemberRepository.findAcceptedRole(travel.id, member)).thenReturn(TravelRole.READ_ONLY)
 		`when`(travelMemberRepository.findAcceptedRole(travel.id, stranger)).thenReturn(null)
@@ -224,8 +197,8 @@ class TravelServiceTest {
 		memberRole = memberRole,
 	)
 
-	private fun travel(owner: User): Travel = Travel(
-		owner = owner,
+	private fun travel(ownerId: UUID): Travel = Travel(
+		ownerId = ownerId,
 		title = "삭제 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-04"),

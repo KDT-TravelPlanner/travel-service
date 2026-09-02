@@ -9,7 +9,6 @@ import com.ktcloud.travelplanner.timeline.model.TimelineItem
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.any
@@ -37,7 +36,7 @@ class TimelineItemServiceTest {
 
 	@Test
 	fun `owner creates timeline item with normalized optional values`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		lateinit var savedItem: TimelineItem
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.existsByTravelIdAndDayNumberAndVisitOrder(TRAVEL_ID, 1, 1))
@@ -56,7 +55,7 @@ class TimelineItemServiceTest {
 
 	@Test
 	fun `accepted read write member can create but other member cannot`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(travelMemberRepository.existsAcceptedReadWriteMember(TRAVEL_ID, MEMBER_ID))
 			.thenReturn(true)
@@ -75,7 +74,7 @@ class TimelineItemServiceTest {
 
 	@Test
 	fun `invalid day date and duplicate visit order are rejected`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.existsByTravelIdAndDayNumberAndVisitOrder(TRAVEL_ID, 2, 1))
 			.thenReturn(false)
@@ -111,13 +110,9 @@ class TimelineItemServiceTest {
 		memo = " 저녁 방문 ",
 	)
 
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-	}
-
-	private fun travel(owner: User): Travel = Travel(
+	private fun travel(ownerId: UUID = OWNER_ID): Travel = Travel(
 		id = TRAVEL_ID,
-		owner = owner,
+		ownerId = ownerId,
 		title = "타임라인 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-03"),

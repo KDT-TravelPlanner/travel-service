@@ -2,9 +2,9 @@ package com.ktcloud.travelplanner.membership.service
 import com.ktcloud.travelplanner.global.exception.DomainException
 import com.ktcloud.travelplanner.global.exception.ErrorCode
 import com.ktcloud.travelplanner.membership.dto.TravelMemberResponse
+import com.ktcloud.travelplanner.membership.port.MembershipUserPort
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -12,7 +12,7 @@ import java.util.UUID
 class TravelMemberQueryService(
         private val travelRepository: TravelRepository,
         private val travelMemberRepository: TravelMemberRepository,
-        private val userLookupPort: UserLookupPort,
+        private val membershipUserPort: MembershipUserPort,
 ) {
         @Transactional(readOnly = true)
         fun getTravelMembers(
@@ -20,21 +20,15 @@ class TravelMemberQueryService(
                 requesterId: UUID,
         ): List<TravelMemberResponse> {
                 val travel = travelRepository.findById(travelId).orElseThrow(::MemberTravelNotFoundException)
-                if (travel.owner.id != requesterId && travelMemberRepository.findAcceptedRole(travelId, requesterId) == null) {
+                if (travel.ownerId != requesterId && travelMemberRepository.findAcceptedRole(travelId, requesterId) == null) {
                         throw TravelMemberAccessDeniedException()
                 }
-                // travel.owner.id는 FK 값이라 안전 (프록시 초기화 없이 접근 가능).
-                // owner.nickname처럼 다른 필드는 직접 못 읽으므로(탈퇴 시 예외 위험, 이슈 #150),
-                // 우회 조회(findOwnerDisplayById)로 안전하게 가져온다.
-                val ownerId = requireNotNull(travel.owner.id)
-                val ownerProjection = userLookupPort.findOwnerDisplayById(ownerId)
-                val ownerIsDeleted = ownerProjection?.deletedAt != null
-                val owner = TravelMemberResponse.fromOwner(
-                        ownerId = ownerId,
-                        nickname = if (ownerIsDeleted) "탈퇴한 사용자" else ownerProjection?.nickname,
-                        profileImageUrl = if (ownerIsDeleted) null else ownerProjection?.profileImageUrl,
-                )
-                val members = travelMemberRepository.findVisibleMembers(travelId).map(TravelMemberResponse::fromMember)
+                // travel은 User 테이블을 갖지 않으므로 오너/멤버 표시 정보(닉네임·프로필)는 Identity에서
+                // 가져온다. 탈퇴한 사용자면 deleted=true로 오고, Identity 장애면 findDisplay가 503을 던진다.
+                val owner = TravelMemberResponse.fromOwner(membershipUserPort.findDisplay(travel.ownerId))
+                val members = travelMemberRepository.findVisibleMembers(travelId).map { member ->
+                        TravelMemberResponse.fromMember(member, membershipUserPort.findDisplay(member.userId))
+                }
                 return listOf(owner) + members
         }
 }

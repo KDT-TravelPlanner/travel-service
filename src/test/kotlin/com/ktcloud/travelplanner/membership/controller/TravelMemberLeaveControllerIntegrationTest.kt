@@ -8,9 +8,6 @@ import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
@@ -36,7 +33,6 @@ import kotlin.test.assertFalse
 @Transactional
 class TravelMemberLeaveControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
@@ -94,27 +90,23 @@ class TravelMemberLeaveControllerIntegrationTest(
 			}
 	}
 
-	private fun leave(travelId: UUID, requester: User) =
+	private fun leave(travelId: UUID, requester: UUID) =
 		mockMvc.delete("/api/v1/travels/$travelId/members/me") {
 			header(HttpHeaders.AUTHORIZATION, bearer(requester))
 		}
 
-	private fun get(path: String, requester: User) = mockMvc.get(path) {
+	private fun get(path: String, requester: UUID) = mockMvc.get(path) {
 		header(HttpHeaders.AUTHORIZATION, bearer(requester))
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(OAuthProvider.GOOGLE, "member-leave-${UUID.randomUUID()}").also {
-			it.completeProfile(nickname, null, null)
-		},
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-	private fun saveTravel(owner: User, title: String): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID, title: String): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = title,
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-02"),
@@ -123,13 +115,13 @@ class TravelMemberLeaveControllerIntegrationTest(
 
 	private fun saveMember(
 		travel: Travel,
-		user: User,
+		userId: UUID,
 		role: TravelRole,
 		isAccepted: Boolean,
 	): TravelMember {
 		val member = TravelMember(
 			travel = travel,
-			user = user,
+			userId = userId,
 			role = role,
 			invitedAt = Instant.parse("2026-07-01T00:00:00Z"),
 		)

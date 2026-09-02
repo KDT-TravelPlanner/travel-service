@@ -16,7 +16,7 @@ class JpaMapsTravelAccessAdapter(
 ) : MapsTravelAccessPort {
     override fun requireReadableTravel(travelId: UUID, requesterId: UUID): MapsTravelReference {
         val travel = travelRepository.findById(travelId).orElseThrow(::MapPointTravelNotFoundException)
-        if (travel.owner.id != requesterId &&
+        if (travel.ownerId != requesterId &&
             travelMemberRepository.findAcceptedRole(travelId, requesterId) == null
         ) throw MapPointAccessDeniedException()
         return MapsTravelReference(travel.id, travel.travelDays)

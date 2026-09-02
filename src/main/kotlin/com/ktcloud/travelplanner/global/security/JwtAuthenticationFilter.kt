@@ -1,6 +1,5 @@
 package com.ktcloud.travelplanner.global.security
 
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -10,9 +9,12 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
 import org.springframework.web.filter.OncePerRequestFilter
 
+// Identity 분리 후 travel은 user_table을 갖지 않으므로 DB 존재 확인을 하지 않는다.
+// 모든 서비스가 같은 HS256 JWT_SECRET을 공유하므로 서명 검증만으로 요청자를 신뢰한다
+// (AUTH_FORWARDING_CONTRACT.md — community/maps 필터와 동일). 탈퇴 사용자가 만료 전 토큰으로
+// 잠시 더 접근 가능해지는 트레이드오프는 이번 PoC 스코프에서 허용한다.
 class JwtAuthenticationFilter(
 	private val jwtTokenService: JwtTokenService,
-	private val userLookupPort: UserLookupPort,
 	private val apiSecurityErrorHandler: ApiSecurityErrorHandler,
 ) : OncePerRequestFilter() {
 	override fun doFilterInternal(
@@ -29,9 +31,6 @@ class JwtAuthenticationFilter(
 		try {
 			val token = extractBearerToken(authorization)
 			val userId = jwtTokenService.parseUserId(token)
-			if (!userLookupPort.existsById(userId)) {
-				throw InvalidAccessTokenException()
-			}
 
 			val principal = AuthenticatedUserPrincipal(userId)
 			val authentication = UsernamePasswordAuthenticationToken.authenticated(

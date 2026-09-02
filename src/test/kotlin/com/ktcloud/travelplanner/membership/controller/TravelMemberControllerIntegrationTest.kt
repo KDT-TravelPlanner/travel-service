@@ -6,12 +6,10 @@ import com.ktcloud.travelplanner.membership.model.TravelInvitationAction
 import com.ktcloud.travelplanner.membership.model.TravelMember
 import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
+import com.ktcloud.travelplanner.testsupport.FakeMembershipUserPortConfig
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -31,11 +29,10 @@ import kotlin.test.assertEquals
 @ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(TestcontainersConfiguration::class)
+@Import(TestcontainersConfiguration::class, FakeMembershipUserPortConfig::class)
 @Transactional
 class TravelMemberControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
@@ -58,7 +55,7 @@ class TravelMemberControllerIntegrationTest(
 			.andExpect {
 				status { isOk() }
 				jsonPath("$.data.length()", equalTo(4))
-				jsonPath("$.data[0].userId", equalTo(owner.id.toString()))
+				jsonPath("$.data[0].userId", equalTo(owner.toString()))
 				jsonPath("$.data[0].role", equalTo("OWNER"))
 				jsonPath("$.data[0].isOwner", equalTo(true))
 			}
@@ -67,7 +64,7 @@ class TravelMemberControllerIntegrationTest(
 		val members = objectMapper.readTree(result.response.contentAsString).path("data")
 		val actualMemberIds = members.drop(1).map { it.path("userId").asText() }
 		val expectedMemberIds =
-			listOf(readOnlyUser.id.toString(), readWriteUser.id.toString(), pendingUser.id.toString()).sorted()
+			listOf(readOnlyUser.toString(), readWriteUser.toString(), pendingUser.toString()).sorted()
 		assertEquals(expectedMemberIds, actualMemberIds)
 		assertEquals(setOf("READ_ONLY", "READ_WRITE"), members.drop(1).map { it.path("role").asText() }.toSet())
 		assertEquals(
@@ -117,27 +114,19 @@ class TravelMemberControllerIntegrationTest(
 
 	private fun getMembers(
 		travel: Travel,
-		requester: User,
+		requester: UUID,
 	) = mockMvc.get("/api/v1/travels/${travel.id}/members") {
 		header(HttpHeaders.AUTHORIZATION, bearer(requester))
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "travel-members-${UUID.randomUUID()}",
-		).also {
-			it.updateOAuthProfile(null, null, "https://example.com/$nickname.png")
-			it.completeProfile(nickname, null, null)
-		},
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-	private fun saveTravel(owner: User): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = "참여자 여행",
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-02"),
@@ -146,13 +135,13 @@ class TravelMemberControllerIntegrationTest(
 
 	private fun saveMember(
 		travel: Travel,
-		user: User,
+		userId: UUID,
 		role: TravelRole,
 		action: TravelInvitationAction? = null,
 	): TravelMember {
 		val member = TravelMember(
 			travel = travel,
-			user = user,
+			userId = userId,
 			role = role,
 			invitedAt = Instant.parse("2026-07-01T00:00:00Z"),
 		)

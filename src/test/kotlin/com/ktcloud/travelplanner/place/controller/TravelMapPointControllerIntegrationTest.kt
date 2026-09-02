@@ -12,9 +12,6 @@ import com.ktcloud.travelplanner.timeline.model.TimelineItem
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.hasSize
@@ -45,7 +42,6 @@ import java.util.UUID
 @Transactional
 class TravelMapPointControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val timelineItemRepository: TimelineItemRepository,
@@ -160,7 +156,7 @@ class TravelMapPointControllerIntegrationTest(
 
 	private fun getMapPoints(
 		travel: Travel,
-		requester: User,
+		requester: UUID,
 		dayNumber: Int,
 	) = mockMvc.get("/api/v1/travels/${travel.id}/map-points") {
 		header(HttpHeaders.AUTHORIZATION, bearer(requester))
@@ -169,13 +165,13 @@ class TravelMapPointControllerIntegrationTest(
 
 	private fun acceptMember(
 		travel: Travel,
-		user: User,
+		userId: UUID,
 		role: TravelRole,
 	) {
 		val member = travelMemberRepository.saveAndFlush(
 			TravelMember(
 				travel = travel,
-				user = user,
+				userId = userId,
 				role = role,
 				invitedAt = Instant.parse("2026-01-01T00:00:00Z"),
 			),
@@ -201,19 +197,14 @@ class TravelMapPointControllerIntegrationTest(
 		),
 	)
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "map-points-${UUID.randomUUID()}",
-		).also { it.completeProfile(nickname, null, null) },
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-	private fun saveTravel(owner: User): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = "지도 여행",
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-03"),

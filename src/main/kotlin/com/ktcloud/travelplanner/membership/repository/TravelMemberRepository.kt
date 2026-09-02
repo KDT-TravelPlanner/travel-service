@@ -18,9 +18,8 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 SELECT member
                 FROM TravelMember member
                 JOIN member.travel travel
-                JOIN FETCH member.user user
                 WHERE travel.id = :travelId
-                        AND user.id = :userId
+                        AND member.userId = :userId
                         AND travel.deletedAt IS NULL
                 """,
         )
@@ -34,13 +33,12 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 """
                 SELECT member
                 FROM TravelMember member
-                JOIN FETCH member.user user
                 WHERE member.travel.id = :travelId
                         AND member.status IN (
                                 com.ktcloud.travelplanner.membership.model.InvitationStatus.ACCEPTED,
                                 com.ktcloud.travelplanner.membership.model.InvitationStatus.PENDING
                         )
-                ORDER BY user.id ASC
+                ORDER BY member.userId ASC
                 """,
         )
         fun findVisibleMembers(@Param("travelId") travelId: UUID): List<TravelMember>
@@ -49,7 +47,6 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 """
                 SELECT member
                 FROM TravelMember member
-                JOIN FETCH member.user invitee
                 JOIN member.travel travel
                 WHERE member.id = :invitationId
                         AND travel.deletedAt IS NULL
@@ -61,9 +58,7 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                         SELECT member
                         FROM TravelMember member
                         JOIN FETCH member.travel travel
-                        JOIN FETCH travel.owner inviter
-                        JOIN FETCH member.user invitee
-                        WHERE invitee.id = :userId
+                        WHERE member.userId = :userId
                                 AND member.status = :status
                                 AND travel.deletedAt IS NULL
                         ORDER BY member.invitedAt DESC, member.id DESC
@@ -72,7 +67,7 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                         SELECT COUNT(member)
                         FROM TravelMember member
                         JOIN member.travel travel
-                        WHERE member.user.id = :userId
+                        WHERE member.userId = :userId
                                 AND member.status = :status
                                 AND travel.deletedAt IS NULL
                 """,
@@ -86,7 +81,7 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 """
                 SELECT CASE WHEN COUNT(member) > 0 THEN TRUE ELSE FALSE END
                 FROM TravelMember member
-                WHERE member.travel.id = :travelId AND member.user.id = :userId
+                WHERE member.travel.id = :travelId AND member.userId = :userId
                 """,
         )
         fun existsByTravelAndUser(
@@ -98,7 +93,7 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 SELECT CASE WHEN COUNT(member) > 0 THEN TRUE ELSE FALSE END
                 FROM TravelMember member
                 WHERE member.travel.id = :travelId
-                        AND member.user.id = :userId
+                        AND member.userId = :userId
                         AND member.status = com.ktcloud.travelplanner.membership.model.InvitationStatus.ACCEPTED
                         AND member.role = com.ktcloud.travelplanner.membership.model.TravelRole.READ_WRITE
                 """,
@@ -112,7 +107,7 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 SELECT member.role
                 FROM TravelMember member
                 WHERE member.travel.id = :travelId
-                        AND member.user.id = :userId
+                        AND member.userId = :userId
                         AND member.status = com.ktcloud.travelplanner.membership.model.InvitationStatus.ACCEPTED
                 """,
         )
@@ -128,7 +123,6 @@ interface TravelMemberRepository : JpaRepository<TravelMember, UUID> {
                 """
                 SELECT member
                 FROM TravelMember member
-                JOIN FETCH member.user user
                 WHERE member.travel.id = :travelId
                         AND member.status = com.ktcloud.travelplanner.membership.model.InvitationStatus.ACCEPTED
                 ORDER BY member.role DESC, member.respondedAt ASC, member.id ASC

@@ -1,8 +1,7 @@
 package com.ktcloud.travelplanner.timeline.model
 
 import com.ktcloud.travelplanner.travel.model.Travel
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
+import java.util.UUID
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
@@ -10,7 +9,7 @@ import kotlin.test.assertEquals
 
 class TimelineItemTest {
 	private val travel = Travel(
-		owner = User(OAuthProvider.GOOGLE, "timeline-owner"),
+		ownerId = UUID.randomUUID(),
 		title = "타임라인 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-03"),
