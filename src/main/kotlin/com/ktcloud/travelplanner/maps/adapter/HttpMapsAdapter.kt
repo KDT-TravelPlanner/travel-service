@@ -24,6 +24,7 @@ class HttpMapsAdapter(
 
 	override fun calculateRoute(googlePlaceIds: List<String>, transportationType: TransportationType): RouteCalculation {
 		val response = client.post().uri("/internal/v1/maps/routes/calculate")
+			.headers { it.applyIncomingRequestContext() }
 			.body(HttpRouteCalculationRequest(googlePlaceIds, transportationType))
 			.retrieve().body(HttpRouteCalculationResponse::class.java)!!
 		return RouteCalculation(response.encodedPolyline, response.encodedPolylines, response.totalDistanceMeters, response.totalDurationSeconds,
@@ -43,7 +44,9 @@ class HttpMapsPlaceLocationAdapter(
 	private val client = restClientBuilder.baseUrl(properties.baseUrl.toASCIIString()).build()
 
 	override fun findLocation(googlePlaceId: String): PlaceLocation? = try {
-		client.get().uri("/internal/v1/maps/places/{id}/location", googlePlaceId).retrieve()
+		client.get().uri("/internal/v1/maps/places/{id}/location", googlePlaceId)
+			.headers { it.applyIncomingRequestContext() }
+			.retrieve()
 			.body(HttpPlaceLocationResponse::class.java)?.let { PlaceLocation(BigDecimal(it.latitude), BigDecimal(it.longitude)) }
 	} catch (_: org.springframework.web.client.HttpClientErrorException.NotFound) { null }
 }
