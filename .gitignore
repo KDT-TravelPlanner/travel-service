@@ -43,3 +43,4 @@ out/
 /BACKEND_CHECKLIST.local.md
 /TROUBLESHOOTING.local.md
 /logs/
+/gradle.properties
