@@ -1,7 +1,7 @@
 package com.ktcloud.travelplanner.global.security
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.ktcloud.travelplanner.user.repository.UserRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import jakarta.servlet.FilterChain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -30,10 +30,10 @@ class JwtAuthenticationFilterTest {
 		),
 		Clock.fixed(now, ZoneOffset.UTC),
 	)
-	private val userRepository = mock(UserRepository::class.java)
+	private val userLookupPort = mock(UserLookupPort::class.java)
 	private val filter = JwtAuthenticationFilter(
 		tokenService,
-		userRepository,
+		userLookupPort,
 		ApiSecurityErrorHandler(jacksonObjectMapper()),
 	)
 
@@ -45,7 +45,7 @@ class JwtAuthenticationFilterTest {
 	@Test
 	fun `injects authenticated user principal for valid active user`() {
 		val accessToken = tokenService.issueAccessToken(userId).value
-		`when`(userRepository.existsById(userId)).thenReturn(true)
+		`when`(userLookupPort.existsById(userId)).thenReturn(true)
 		val request = requestWithBearer(accessToken)
 		val response = MockHttpServletResponse()
 		var invoked = false
@@ -63,7 +63,7 @@ class JwtAuthenticationFilterTest {
 	@Test
 	fun `rejects valid token when user is deleted or absent`() {
 		val accessToken = tokenService.issueAccessToken(userId).value
-		`when`(userRepository.existsById(userId)).thenReturn(false)
+		`when`(userLookupPort.existsById(userId)).thenReturn(false)
 		val response = MockHttpServletResponse()
 		var invoked = false
 

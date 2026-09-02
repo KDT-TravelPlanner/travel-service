@@ -2,33 +2,41 @@ package com.ktcloud.travelplanner.place.service
 
 import com.ktcloud.travelplanner.global.exception.DomainException
 import com.ktcloud.travelplanner.global.exception.ErrorCode
-import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
+import com.ktcloud.travelplanner.maps.port.MapsTravelAccessPort
+import com.ktcloud.travelplanner.maps.port.MapsTravelReference
 import com.ktcloud.travelplanner.place.dto.TravelMapPointResponse
 import com.ktcloud.travelplanner.place.dto.TravelMapPointsResponse
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
-import com.ktcloud.travelplanner.travel.model.Travel
+import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
 
 @Service
-class TravelMapPointService(
-        private val travelRepository: TravelRepository,
-        private val travelMemberRepository: TravelMemberRepository,
+class TravelMapPointService @Autowired constructor(
+        private val mapsTravelAccessPort: MapsTravelAccessPort,
         private val timelineItemRepository: TimelineItemRepository,
         private val placeLocationService: PlaceLocationService,
 ) {
+        constructor(
+                travelRepository: TravelRepository,
+                travelMemberRepository: TravelMemberRepository,
+                timelineItemRepository: TimelineItemRepository,
+                placeLocationService: PlaceLocationService,
+        ) : this(
+                LegacyMapsTravelAccessAdapter(travelRepository, travelMemberRepository),
+                timelineItemRepository,
+                placeLocationService,
+        )
         @Transactional(readOnly = true)
         fun getMapPoints(
                 travelId: UUID,
                 requesterId: UUID,
                 dayNumber: Int,
         ): TravelMapPointsResponse {
-                val travel = travelRepository.findById(travelId)
-                        .orElseThrow(::MapPointTravelNotFoundException)
-
-                validateReadPermission(travel, requesterId)
+                val travel = mapsTravelAccessPort.requireReadableTravel(travelId, requesterId)
 
                 if (dayNumber !in 1..travel.travelDays) {
                         throw InvalidMapDayNumberException()
@@ -76,17 +84,18 @@ class TravelMapPointService(
                 )
         }
 
-        private fun validateReadPermission(
-                travel: Travel,
-                requesterId: UUID,
-        ) {
-                if (travel.owner.id == requesterId) {
-                        return
-                }
+}
 
-                if (travelMemberRepository.findAcceptedRole(travel.id, requesterId) == null) {
-                        throw MapPointAccessDeniedException()
-                }
+private class LegacyMapsTravelAccessAdapter(
+        private val travelRepository: TravelRepository,
+        private val travelMemberRepository: TravelMemberRepository,
+) : MapsTravelAccessPort {
+        override fun requireReadableTravel(travelId: UUID, requesterId: UUID): MapsTravelReference {
+                val travel = travelRepository.findById(travelId).orElseThrow(::MapPointTravelNotFoundException)
+                if (travel.owner.id != requesterId &&
+                        travelMemberRepository.findAcceptedRole(travelId, requesterId) == null
+                ) throw MapPointAccessDeniedException()
+                return MapsTravelReference(travel.id, travel.travelDays)
         }
 }
 

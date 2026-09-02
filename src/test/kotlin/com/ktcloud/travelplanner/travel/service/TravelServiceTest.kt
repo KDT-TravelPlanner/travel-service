@@ -8,9 +8,9 @@ import com.ktcloud.travelplanner.travel.dto.TravelCreateRequest
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelListRow
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import com.ktcloud.travelplanner.user.model.OAuthProvider
 import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.any
@@ -33,15 +33,15 @@ import kotlin.test.assertTrue
 class TravelServiceTest {
 	private val travelRepository = mock(TravelRepository::class.java)
 	private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-	private val userRepository = mock(UserRepository::class.java)
-	private val service = TravelService(travelRepository, travelMemberRepository, userRepository, TestFixtures.FIXED_CLOCK)
+	private val userLookupPort = mock(UserLookupPort::class.java)
+	private val service = TravelService(travelRepository, travelMemberRepository, userLookupPort, TestFixtures.FIXED_CLOCK)
 
 	@Test
 	fun `uses authenticated user as owner and returns generated travel id`() {
 		val ownerId = UUID.randomUUID()
 		val owner = User(OAuthProvider.GOOGLE, "service-owner")
 		lateinit var savedTravel: Travel
-		`when`(userRepository.findById(ownerId)).thenReturn(Optional.of(owner))
+		`when`(userLookupPort.findById(ownerId)).thenReturn(owner)
 		`when`(travelRepository.save(any(Travel::class.java))).thenAnswer {
 			it.getArgument<Travel>(0).also { travel -> savedTravel = travel }
 		}
@@ -57,7 +57,7 @@ class TravelServiceTest {
 	@Test
 	fun `rejects missing authenticated owner before saving`() {
 		val ownerId = UUID.randomUUID()
-		`when`(userRepository.findById(ownerId)).thenReturn(Optional.empty())
+		`when`(userLookupPort.findById(ownerId)).thenReturn(null)
 
 		assertThrows<TravelOwnerNotFoundException> {
 			service.createTravel(ownerId, request())

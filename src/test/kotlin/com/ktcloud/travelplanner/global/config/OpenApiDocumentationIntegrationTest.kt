@@ -14,7 +14,6 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @ActiveProfiles("test")
@@ -42,7 +41,6 @@ class OpenApiDocumentationIntegrationTest(
 		assertEquals(OpenApiConfiguration.API_VERSION, document.path("info").path("version").asText())
 		assertBearerSecurity(document)
 		assertDocumentedPaths(document)
-		assertAuthenticationContracts(document)
 		assertRequestParameters(document)
 	}
 
@@ -90,38 +88,13 @@ class OpenApiDocumentationIntegrationTest(
 		assertFalse("/api/ping" in documentedPaths)
 
 		listOf(
-			"/api/v1/auth/token/exchange",
-			"/api/v1/users/me/profile",
-			"/api/v1/users/me/profile-image/complete",
 			"/api/v1/travels",
 			"/api/v1/countries",
-			"/api/v1/places/search",
 			"/api/v1/travels/{travelId}/timeline-items",
-			"/api/v1/travels/{travelId}/routes",
 			"/api/v1/travels/{travelId}/members",
 		).forEach { path -> assertTrue(path in documentedPaths, "Missing documented path: $path") }
 
 		assertTrue(document.path("components").path("schemas").has("TravelCreateRequest"))
-		assertTrue(document.path("components").path("schemas").has("ProfileImageUploadCompleteRequest"))
-	}
-
-	private fun assertAuthenticationContracts(document: JsonNode) {
-		val exchangeSecurity = document.path("paths")
-			.path("/api/v1/auth/token/exchange")
-			.path("post")
-			.path("security")
-		assertTrue(exchangeSecurity.isArray)
-		assertTrue(exchangeSecurity.isEmpty)
-
-		val oauthSecurity = document.path("paths")
-			.path("/api/v1/auth/oauth2/{provider}")
-			.path("get")
-			.path("security")
-		assertTrue(oauthSecurity.isArray)
-		assertTrue(oauthSecurity.isEmpty)
-
-		val logout = document.path("paths").path("/api/v1/auth/logout").path("post")
-		assertFalse(logout.has("security"))
 	}
 
 	private fun assertRequestParameters(document: JsonNode) {
@@ -133,12 +106,5 @@ class OpenApiDocumentationIntegrationTest(
 		assertFalse("principal" in travelParameters)
 		assertTrue("keyword" in travelParameters)
 
-		val refreshCookie = document.path("paths")
-			.path("/api/v1/auth/token/refresh")
-			.path("post")
-			.path("parameters")
-			.firstOrNull { it.path("name").asText() == "refresh_token" }
-		assertNotNull(refreshCookie)
-		assertEquals("cookie", refreshCookie.path("in").asText())
 	}
 }

@@ -4,7 +4,7 @@ import com.ktcloud.travelplanner.global.exception.ErrorCode
 import com.ktcloud.travelplanner.membership.dto.TravelMemberResponse
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.repository.UserRepository
+import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -12,7 +12,7 @@ import java.util.UUID
 class TravelMemberQueryService(
         private val travelRepository: TravelRepository,
         private val travelMemberRepository: TravelMemberRepository,
-        private val userRepository: UserRepository,
+        private val userLookupPort: UserLookupPort,
 ) {
         @Transactional(readOnly = true)
         fun getTravelMembers(
@@ -27,12 +27,12 @@ class TravelMemberQueryService(
                 // owner.nickname처럼 다른 필드는 직접 못 읽으므로(탈퇴 시 예외 위험, 이슈 #150),
                 // 우회 조회(findOwnerDisplayById)로 안전하게 가져온다.
                 val ownerId = requireNotNull(travel.owner.id)
-                val ownerProjection = userRepository.findOwnerDisplayById(ownerId)
-                val ownerIsDeleted = ownerProjection?.getDeletedAt() != null
+                val ownerProjection = userLookupPort.findOwnerDisplayById(ownerId)
+                val ownerIsDeleted = ownerProjection?.deletedAt != null
                 val owner = TravelMemberResponse.fromOwner(
                         ownerId = ownerId,
-                        nickname = if (ownerIsDeleted) "탈퇴한 사용자" else ownerProjection?.getNickname(),
-                        profileImageUrl = if (ownerIsDeleted) null else ownerProjection?.getProfileImageUrl(),
+                        nickname = if (ownerIsDeleted) "탈퇴한 사용자" else ownerProjection?.nickname,
+                        profileImageUrl = if (ownerIsDeleted) null else ownerProjection?.profileImageUrl,
                 )
                 val members = travelMemberRepository.findVisibleMembers(travelId).map(TravelMemberResponse::fromMember)
                 return listOf(owner) + members
