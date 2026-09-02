@@ -63,8 +63,7 @@ class TravelMemberMigrationIntegrationTest : ContainerIntegrationTestSupport() {
 		val inviteeId = UUID.randomUUID()
 		val travelId = UUID.randomUUID()
 		val now = OffsetDateTime.of(2026, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)
-		insertUser(ownerId, "membership-owner-$ownerId", now)
-		insertUser(inviteeId, "membership-invitee-$inviteeId", now)
+		// V20 이후 owner_id/user_id는 Identity 사용자 UUID일 뿐 user_table FK가 없다.
 		jdbcTemplate.update(
 			"INSERT INTO planners_table " +
 				"(id, owner_id, title, start_date, end_date, created_at, updated_at) " +
@@ -79,23 +78,10 @@ class TravelMemberMigrationIntegrationTest : ContainerIntegrationTestSupport() {
 			insertMember(travelId, inviteeId, "OWNER", "PENDING", now)
 		}
 		insertMember(travelId, inviteeId, "READ_ONLY", "PENDING", now)
+		// 같은 (planner_id, user_id) 재삽입은 UNIQUE 제약 위반
 		assertThrows<DataIntegrityViolationException> {
 			insertMember(travelId, inviteeId, "READ_WRITE", "PENDING", now)
 		}
-		assertThrows<DataIntegrityViolationException> {
-			insertMember(travelId, UUID.randomUUID(), "READ_ONLY", "PENDING", now)
-		}
-	}
-
-	private fun insertUser(id: UUID, providerUserId: String, now: OffsetDateTime) {
-		jdbcTemplate.update(
-			"INSERT INTO user_table (id, provider, provider_user_id, profile_completed, created_at, updated_at) " +
-				"VALUES (?, 'GOOGLE', ?, FALSE, ?, ?)",
-			id,
-			providerUserId,
-			now,
-			now,
-		)
 	}
 
 	private fun insertMember(

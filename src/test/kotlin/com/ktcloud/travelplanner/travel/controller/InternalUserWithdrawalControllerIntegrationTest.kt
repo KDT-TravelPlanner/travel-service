@@ -7,9 +7,6 @@ import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,7 +34,6 @@ import kotlin.test.assertTrue
 @Transactional
 class InternalUserWithdrawalControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
@@ -88,7 +84,7 @@ class InternalUserWithdrawalControllerIntegrationTest(
 		val owner = saveUser("wd-mismatch-owner")
 		val other = saveUser("wd-mismatch-other")
 
-		mockMvc.post("/api/v1/internal/users/${other.id}/withdrawal") {
+		mockMvc.post("/api/v1/internal/users/${other}/withdrawal") {
 			header(HttpHeaders.AUTHORIZATION, bearer(owner))
 		}.andExpect { status { isForbidden() } }
 	}
@@ -99,30 +95,27 @@ class InternalUserWithdrawalControllerIntegrationTest(
 			.andExpect { status { isUnauthorized() } }
 	}
 
-	private fun withdraw(user: User) = mockMvc.post("/api/v1/internal/users/${user.id}/withdrawal") {
-		header(HttpHeaders.AUTHORIZATION, bearer(user))
+	private fun withdraw(userId: UUID) = mockMvc.post("/api/v1/internal/users/$userId/withdrawal") {
+		header(HttpHeaders.AUTHORIZATION, bearer(userId))
 	}
 
-	private fun assertOwner(travel: Travel, expected: User) =
-		assertEquals(expected.id, travel.owner.id)
+	private fun assertOwner(travel: Travel, expected: UUID) =
+		assertEquals(expected, travel.ownerId)
 
-	private fun acceptMember(travel: Travel, user: User, role: TravelRole) {
+	private fun acceptMember(travel: Travel, userId: UUID, role: TravelRole) {
 		val member = travelMemberRepository.saveAndFlush(
-			TravelMember(travel = travel, user = user, role = role, invitedAt = Instant.parse("2026-01-01T00:00:00Z")),
+			TravelMember(travel = travel, userId = userId, role = role, invitedAt = Instant.parse("2026-01-01T00:00:00Z")),
 		)
 		jdbcTemplate.update("UPDATE planner_members SET status = 'ACCEPTED', responded_at = NOW() WHERE id = ?", member.id)
 		entityManager.clear()
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(provider = OAuthProvider.GOOGLE, providerUserId = "wd-${UUID.randomUUID()}")
-			.also { it.completeProfile(nickname, null, null) },
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-	private fun saveTravel(owner: User): Travel = travelRepository.saveAndFlush(
-		Travel(owner = owner, title = "탈퇴 정리 여행", startDate = LocalDate.parse("2026-08-01"), endDate = LocalDate.parse("2026-08-03")),
+	private fun saveTravel(ownerId: UUID): Travel = travelRepository.saveAndFlush(
+		Travel(ownerId = ownerId, title = "탈퇴 정리 여행", startDate = LocalDate.parse("2026-08-01"), endDate = LocalDate.parse("2026-08-03")),
 	)
 }

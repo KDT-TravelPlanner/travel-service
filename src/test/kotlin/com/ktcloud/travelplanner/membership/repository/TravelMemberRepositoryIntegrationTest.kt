@@ -6,9 +6,6 @@ import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -26,7 +23,6 @@ import kotlin.test.assertEquals
 @Import(TestcontainersConfiguration::class)
 @Transactional
 class TravelMemberRepositoryIntegrationTest(
-        @Autowired private val userRepository: UserRepository,
         @Autowired private val travelRepository: TravelRepository,
         @Autowired private val travelMemberRepository: TravelMemberRepository,
         @Autowired private val entityManager: EntityManager,
@@ -83,30 +79,25 @@ class TravelMemberRepositoryIntegrationTest(
         private fun saveAcceptedMember(
                 id: UUID,
                 travel: Travel,
-                user: User,
+                userId: UUID,
                 role: TravelRole,
                 respondedAt: Instant,
         ): TravelMember {
                 val member = TravelMember(
                         id = id,
                         travel = travel,
-                        user = user,
+                        userId = userId,
                         role = role,
                         invitedAt = respondedAt,
                 ).also { it.respond(TravelInvitationAction.ACCEPT, respondedAt) }
                 return travelMemberRepository.saveAndFlush(member)
         }
 
-        private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-                User(
-                        provider = OAuthProvider.GOOGLE,
-                        providerUserId = "tie-${UUID.randomUUID()}",
-                ).also { it.completeProfile(nickname, null, null) },
-        )
+        private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-        private fun saveTravel(owner: User): Travel = travelRepository.saveAndFlush(
+        private fun saveTravel(ownerId: UUID): Travel = travelRepository.saveAndFlush(
                 Travel(
-                        owner = owner,
+                        ownerId = ownerId,
                         title = "동점 테스트 여행",
                         startDate = LocalDate.parse("2026-08-01"),
                         endDate = LocalDate.parse("2026-08-03"),

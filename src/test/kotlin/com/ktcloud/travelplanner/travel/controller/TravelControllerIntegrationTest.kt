@@ -3,9 +3,6 @@ package com.ktcloud.travelplanner.travel.controller
 import com.ktcloud.travelplanner.global.security.JwtTokenService
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.notNullValue
@@ -31,7 +28,6 @@ import kotlin.test.assertEquals
 @Transactional
 class TravelControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
 	@Autowired private val entityManager: EntityManager,
@@ -39,7 +35,7 @@ class TravelControllerIntegrationTest(
 	@Test
 	fun `authenticated user creates travel as owner and persistence stores dates`() {
 		val owner = saveUser()
-		val accessToken = jwtTokenService.issueAccessToken(requireNotNull(owner.id)).value
+		val accessToken = jwtTokenService.issueAccessToken(owner).value
 
 		val result = mockMvc.post("/api/v1/travels") {
 			header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
@@ -58,7 +54,7 @@ class TravelControllerIntegrationTest(
 		entityManager.clear()
 		val travel = travelRepository.findById(travelId).orElseThrow()
 
-		assertEquals(owner.id, travel.owner.id)
+		assertEquals(owner, travel.ownerId)
 		assertEquals("도쿄 여행", travel.title)
 		assertEquals(LocalDate.parse("2026-08-01"), travel.startDate)
 		assertEquals(LocalDate.parse("2026-08-04"), travel.endDate)
@@ -68,7 +64,7 @@ class TravelControllerIntegrationTest(
 	@Test
 	fun `invalid date range returns validation error and does not persist`() {
 		val owner = saveUser()
-		val accessToken = jwtTokenService.issueAccessToken(requireNotNull(owner.id)).value
+		val accessToken = jwtTokenService.issueAccessToken(owner).value
 
 		mockMvc.post("/api/v1/travels") {
 			header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
@@ -96,12 +92,5 @@ class TravelControllerIntegrationTest(
 			}
 	}
 
-	private fun saveUser(): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "travel-${UUID.randomUUID()}",
-			email = "owner@example.com",
-			name = "Travel Owner",
-		),
-	)
+	private fun saveUser(): UUID = UUID.randomUUID()
 }

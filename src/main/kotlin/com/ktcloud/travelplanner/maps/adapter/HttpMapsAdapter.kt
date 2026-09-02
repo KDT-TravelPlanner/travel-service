@@ -1,6 +1,7 @@
 package com.ktcloud.travelplanner.maps.adapter
 
 import com.ktcloud.travelplanner.global.exception.MapsServiceUnavailableException
+import com.ktcloud.travelplanner.global.external.applyIncomingRequestContext
 import com.ktcloud.travelplanner.place.port.PlaceLocation
 import com.ktcloud.travelplanner.place.port.PlaceLocationPort
 import com.ktcloud.travelplanner.route.model.TransportationType

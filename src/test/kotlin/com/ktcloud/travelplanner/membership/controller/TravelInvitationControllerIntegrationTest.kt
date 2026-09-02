@@ -5,12 +5,11 @@ import com.ktcloud.travelplanner.membership.model.InvitationStatus
 import com.ktcloud.travelplanner.membership.model.TravelMember
 import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
+import com.ktcloud.travelplanner.testsupport.FakeMembershipUserPort
+import com.ktcloud.travelplanner.testsupport.FakeMembershipUserPortConfig
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.notNullValue
@@ -36,14 +35,14 @@ import kotlin.test.assertNotNull
 @ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(TestcontainersConfiguration::class)
+@Import(TestcontainersConfiguration::class, FakeMembershipUserPortConfig::class)
 @Transactional
 class TravelInvitationControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
+	@Autowired private val membershipUserPort: FakeMembershipUserPort,
 	@Autowired private val entityManager: EntityManager,
 ) {
 	@Test
@@ -66,7 +65,7 @@ class TravelInvitationControllerIntegrationTest(
 		entityManager.clear()
 		val member = travelMemberRepository.findAll().single()
 		assertEquals(travel.id, member.travel.id)
-		assertEquals(invitee.id, member.user.id)
+		assertEquals(invitee, member.userId)
 		assertEquals(TravelRole.READ_WRITE, member.role)
 		assertEquals(InvitationStatus.PENDING, member.status)
 		assertNotNull(member.invitedAt)
@@ -90,7 +89,7 @@ class TravelInvitationControllerIntegrationTest(
 			}
 
 		travelMemberRepository.saveAndFlush(
-			TravelMember(travel = travel, user = invitee, role = TravelRole.READ_ONLY, invitedAt = Instant.now()),
+			TravelMember(travel = travel, userId = invitee, role = TravelRole.READ_ONLY, invitedAt = Instant.now()),
 		)
 		postInvitation(travel, owner, "invitee-errors")
 			.andExpect {
@@ -105,7 +104,7 @@ class TravelInvitationControllerIntegrationTest(
 		val invitee = saveUser("invitee-reinvite")
 		val travel = saveTravel(owner)
 		val firstInvitation = travelMemberRepository.saveAndFlush(
-			TravelMember(travel = travel, user = invitee, role = TravelRole.READ_ONLY, invitedAt = Instant.now()),
+			TravelMember(travel = travel, userId = invitee, role = TravelRole.READ_ONLY, invitedAt = Instant.now()),
 		)
 
 		mockMvc.patch("/api/v1/travel-invitations/${firstInvitation.id}") {
@@ -124,7 +123,7 @@ class TravelInvitationControllerIntegrationTest(
 
 		entityManager.flush()
 		entityManager.clear()
-		val member = travelMemberRepository.findAll().single { it.user.id == invitee.id }
+		val member = travelMemberRepository.findAll().single { it.userId == invitee }
 		assertEquals(InvitationStatus.PENDING, member.status)
 		assertNotEquals(firstInvitation.id, member.id)
 	}
@@ -153,7 +152,7 @@ class TravelInvitationControllerIntegrationTest(
 
 	private fun postInvitation(
 		travel: Travel,
-		requester: User,
+		requester: UUID,
 		nickname: String,
 	) = mockMvc.post("/api/v1/travels/${travel.id}/invitations") {
 		header(HttpHeaders.AUTHORIZATION, bearer(requester))
@@ -161,21 +160,15 @@ class TravelInvitationControllerIntegrationTest(
 		content = """{"nickname":"$nickname","role":"READ_ONLY"}"""
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "invitation-${UUID.randomUUID()}",
-		).also {
-			it.completeProfile(nickname, null, null)
-		},
-	)
+	private fun saveUser(nickname: String): UUID =
+		UUID.randomUUID().also { membershipUserPort.register(nickname, it) }
 
-	private fun saveTravel(owner: User): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = "초대 여행",
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-02"),

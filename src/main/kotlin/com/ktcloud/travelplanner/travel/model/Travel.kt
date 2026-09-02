@@ -2,7 +2,6 @@ package com.ktcloud.travelplanner.travel.model
 import com.ktcloud.travelplanner.global.model.BaseTimeEntity
 import com.ktcloud.travelplanner.location.model.City
 import com.ktcloud.travelplanner.location.model.Country
-import com.ktcloud.travelplanner.user.model.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -24,15 +23,15 @@ import java.util.UUID
 class Travel(
         @Id
         val id: UUID = UUID.randomUUID(),
-        owner: User,
+        ownerId: UUID,
         title: String,
         startDate: LocalDate,
         endDate: LocalDate,
 ) : BaseTimeEntity() {
-        // 오너 회원 탈퇴 시 다른 멤버에게 소유권을 이전할 수 있어야 하므로 var로 변경 (이슈 #150)
-        @ManyToOne(fetch = FetchType.LAZY, optional = false)
-        @JoinColumn(name = "owner_id", nullable = false)
-        var owner: User = owner
+        // User 엔티티 관계 대신 Identity 사용자 UUID만 보관한다(D-002 → SERVICE_COMMUNICATION_BOUNDARIES 3).
+        // 오너 회원 탈퇴 시 다른 멤버에게 소유권을 이전할 수 있어야 하므로 var (이슈 #150).
+        @Column(name = "owner_id", nullable = false)
+        var ownerId: UUID = ownerId
                 protected set
         @Column(nullable = false, length = 100)
         var title: String = title
@@ -82,8 +81,8 @@ class Travel(
                 this.deletedAt = deletedAt
         }
         // 이슈 #150 — 오너 회원 탈퇴 시, 다른 멤버에게 소유권을 이전할 때 사용
-        fun transferOwnership(newOwner: User) {
-                this.owner = newOwner
+        fun transferOwnership(newOwnerId: UUID) {
+                this.ownerId = newOwnerId
         }
         fun updateBasicInfo(
                 title: String,

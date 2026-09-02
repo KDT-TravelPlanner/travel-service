@@ -10,7 +10,6 @@ import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
 import com.ktcloud.travelplanner.common.web.PatchField
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -38,7 +37,7 @@ class TimelineItemUpdateServiceTest {
 
 	@Test
 	fun `owner partially updates item and explicitly clears nullable fields`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		val item = item(travel)
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findByIdAndTravelId(ITEM_ID, TRAVEL_ID)).thenReturn(item)
@@ -61,7 +60,7 @@ class TimelineItemUpdateServiceTest {
 
 	@Test
 	fun `non writer and item from another travel are rejected`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(travelMemberRepository.existsAcceptedReadWriteMember(TRAVEL_ID, MEMBER_ID)).thenReturn(false)
 		assertThrows<TimelineItemUpdateAccessDeniedException> {
@@ -77,7 +76,7 @@ class TimelineItemUpdateServiceTest {
 
 	@Test
 	fun `duplicate target order is conflict`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		val item = item(travel)
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findByIdAndTravelId(ITEM_ID, TRAVEL_ID)).thenReturn(item)
@@ -96,13 +95,9 @@ class TimelineItemUpdateServiceTest {
 		verify(timelineItemRepository, never()).saveAndFlush(item)
 	}
 
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-	}
-
-	private fun travel(owner: User): Travel = Travel(
+	private fun travel(ownerId: UUID = OWNER_ID): Travel = Travel(
 		id = TRAVEL_ID,
-		owner = owner,
+		ownerId = ownerId,
 		title = "타임라인 수정 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-03"),

@@ -5,12 +5,10 @@ import com.ktcloud.travelplanner.membership.model.TravelInvitationAction
 import com.ktcloud.travelplanner.membership.model.TravelMember
 import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
+import com.ktcloud.travelplanner.testsupport.FakeMembershipUserPortConfig
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
@@ -32,11 +30,10 @@ import kotlin.test.assertEquals
 @ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(TestcontainersConfiguration::class)
+@Import(TestcontainersConfiguration::class, FakeMembershipUserPortConfig::class)
 @Transactional
 class TravelMemberRoleUpdateControllerIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val travelMemberRepository: TravelMemberRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
@@ -49,10 +46,10 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 		val travel = saveTravel(owner, "권한 변경 여행")
 		val member = saveMember(travel, memberUser, isAccepted = true)
 
-		updateRole(travel.id, requireNotNull(memberUser.id), owner, "READ_WRITE")
+		updateRole(travel.id, memberUser, owner, "READ_WRITE")
 			.andExpect {
 				status { isOk() }
-				jsonPath("$.data.userId", equalTo(memberUser.id.toString()))
+				jsonPath("$.data.userId", equalTo(memberUser.toString()))
 				jsonPath("$.data.role", equalTo("READ_WRITE"))
 				jsonPath("$.data.isOwner", equalTo(false))
 			}
@@ -69,7 +66,7 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 		val travel = saveTravel(owner, "권한 검증 여행")
 		saveMember(travel, memberUser, isAccepted = true)
 
-		updateRole(travel.id, requireNotNull(memberUser.id), memberUser, "READ_ONLY")
+		updateRole(travel.id, memberUser, memberUser, "READ_ONLY")
 			.andExpect {
 				status { isForbidden() }
 				jsonPath("$.code", equalTo("ACCESS_DENIED"))
@@ -86,17 +83,17 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 		saveMember(travel, pendingUser, isAccepted = false)
 		saveMember(otherTravel, otherUser, isAccepted = true)
 
-		updateRole(travel.id, requireNotNull(pendingUser.id), owner, "READ_WRITE")
+		updateRole(travel.id, pendingUser, owner, "READ_WRITE")
 			.andExpect {
 				status { isBadRequest() }
 				jsonPath("$.code", equalTo("INVALID_REQUEST"))
 			}
-		updateRole(travel.id, requireNotNull(owner.id), owner, "READ_ONLY")
+		updateRole(travel.id, owner, owner, "READ_ONLY")
 			.andExpect {
 				status { isBadRequest() }
 				jsonPath("$.code", equalTo("INVALID_REQUEST"))
 			}
-		updateRole(travel.id, requireNotNull(otherUser.id), owner, "READ_ONLY")
+		updateRole(travel.id, otherUser, owner, "READ_ONLY")
 			.andExpect {
 				status { isNotFound() }
 				jsonPath("$.code", equalTo("RESOURCE_NOT_FOUND"))
@@ -110,12 +107,12 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 		val travel = saveTravel(owner, "입력 검증 여행")
 		saveMember(travel, memberUser, isAccepted = true)
 
-		updateRole(travel.id, requireNotNull(memberUser.id), owner, "OWNER")
+		updateRole(travel.id, memberUser, owner, "OWNER")
 			.andExpect {
 				status { isBadRequest() }
 				jsonPath("$.code", equalTo("MALFORMED_JSON"))
 			}
-		mockMvc.patch("/api/v1/travels/${travel.id}/members/${memberUser.id}") {
+		mockMvc.patch("/api/v1/travels/${travel.id}/members/${memberUser}") {
 			contentType = MediaType.APPLICATION_JSON
 			content = """{"role":"READ_ONLY"}"""
 		}
@@ -128,7 +125,7 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 	private fun updateRole(
 		travelId: UUID,
 		memberId: UUID,
-		requester: User,
+		requester: UUID,
 		role: String,
 	) = mockMvc.patch("/api/v1/travels/$travelId/members/$memberId") {
 		header(HttpHeaders.AUTHORIZATION, bearer(requester))
@@ -136,18 +133,14 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 		content = """{"role":"$role"}"""
 	}
 
-	private fun bearer(user: User): String =
-		"Bearer ${jwtTokenService.issueAccessToken(requireNotNull(user.id)).value}"
+	private fun bearer(userId: UUID): String =
+		"Bearer ${jwtTokenService.issueAccessToken(userId).value}"
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(OAuthProvider.GOOGLE, "member-role-${UUID.randomUUID()}").also {
-			it.completeProfile(nickname, null, null)
-		},
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
-	private fun saveTravel(owner: User, title: String): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID, title: String): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = title,
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-02"),
@@ -156,12 +149,12 @@ class TravelMemberRoleUpdateControllerIntegrationTest(
 
 	private fun saveMember(
 		travel: Travel,
-		user: User,
+		userId: UUID,
 		isAccepted: Boolean,
 	): TravelMember {
 		val member = TravelMember(
 			travel = travel,
-			user = user,
+			userId = userId,
 			role = TravelRole.READ_ONLY,
 			invitedAt = Instant.parse("2026-07-01T00:00:00Z"),
 		)

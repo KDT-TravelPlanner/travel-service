@@ -31,9 +31,9 @@ interface TravelRepository : JpaRepository<Travel, UUID> {
                         LEFT JOIN travel.city city
                         LEFT JOIN TravelMember member
                                 ON member.travel = travel
-                                AND member.user.id = :userId
+                                AND member.userId = :userId
                                 AND member.status = com.ktcloud.travelplanner.membership.model.InvitationStatus.ACCEPTED
-                        WHERE (travel.owner.id = :userId OR member.id IS NOT NULL)
+                        WHERE (travel.ownerId = :userId OR member.id IS NOT NULL)
                                 AND travel.endDate >= CAST(:periodStart AS date)
                                 AND travel.startDate <= CAST(:periodEnd AS date)
                                 AND (
@@ -63,9 +63,9 @@ interface TravelRepository : JpaRepository<Travel, UUID> {
                         LEFT JOIN travel.city city
                         LEFT JOIN TravelMember member
                                 ON member.travel = travel
-                                AND member.user.id = :userId
+                                AND member.userId = :userId
                                 AND member.status = com.ktcloud.travelplanner.membership.model.InvitationStatus.ACCEPTED
-                        WHERE (travel.owner.id = :userId OR member.id IS NOT NULL)
+                        WHERE (travel.ownerId = :userId OR member.id IS NOT NULL)
                                 AND travel.endDate >= CAST(:periodStart AS date)
                                 AND travel.startDate <= CAST(:periodEnd AS date)
                                 AND (

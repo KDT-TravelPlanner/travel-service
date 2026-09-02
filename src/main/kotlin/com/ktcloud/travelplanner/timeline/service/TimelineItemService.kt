@@ -78,7 +78,7 @@ class TimelineItemService(
                 travel: Travel,
                 requesterId: UUID,
         ) {
-                if (travel.owner.id == requesterId) {
+                if (travel.ownerId == requesterId) {
                         return
                 }
                 if (!travelMemberRepository.existsAcceptedReadWriteMember(travel.id, requesterId)) {

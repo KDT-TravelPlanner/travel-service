@@ -63,6 +63,10 @@ app:
   external:
     maps:
       base-url: ${MAPS_SERVICE_BASE_URL:http://localhost:8082}
+    identity:
+      base-url: ${IDENTITY_SERVICE_BASE_URL:http://localhost:8081}
+      connect-timeout: ${IDENTITY_SERVICE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${IDENTITY_SERVICE_READ_TIMEOUT:3s}
   logging:
     error-frame-limit: 5
   storage:

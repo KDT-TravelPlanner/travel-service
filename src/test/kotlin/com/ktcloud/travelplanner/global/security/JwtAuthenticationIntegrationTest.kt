@@ -3,9 +3,6 @@ package com.ktcloud.travelplanner.global.security
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.ktcloud.travelplanner.global.logging.RequestIdGenerator
 import com.ktcloud.travelplanner.testsupport.TestcontainersConfiguration
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -37,7 +34,6 @@ import java.util.UUID
 @Transactional
 class JwtAuthenticationIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
 	@Autowired private val entityManager: EntityManager,
 	@Autowired private val objectMapper: ObjectMapper,
@@ -62,22 +58,22 @@ class JwtAuthenticationIntegrationTest(
 
 	@Test
 	fun `valid access token injects authenticated user principal`() {
-		val user = saveUser()
-		val token = jwtTokenService.issueAccessToken(requireNotNull(user.id)).value
+		val userId = saveUser()
+		val token = jwtTokenService.issueAccessToken(userId).value
 
 		mockMvc.get("/api/test/security/principal") {
 			header("Authorization", "Bearer $token")
 		}
 			.andExpect {
 				status { isOk() }
-				jsonPath("$.userId", equalTo(user.id.toString()))
+				jsonPath("$.userId", equalTo(userId.toString()))
 			}
 	}
 
 	@Test
 	fun `active token without required authority returns common 403`() {
-		val user = saveUser()
-		val token = jwtTokenService.issueAccessToken(requireNotNull(user.id)).value
+		val userId = saveUser()
+		val token = jwtTokenService.issueAccessToken(userId).value
 
 		val response = mockMvc.get("/api/test/security/admin") {
 			header(RequestIdGenerator.HEADER_NAME, "jwt-forbidden")
@@ -96,16 +92,14 @@ class JwtAuthenticationIntegrationTest(
 		assertEquals(responseRequestId, objectMapper.readTree(response.contentAsString).path("requestId").asText())
 	}
 
-	@Test
-	fun `token for soft deleted user is rejected`() {
-		val user = saveUser()
-		val token = jwtTokenService.issueAccessToken(requireNotNull(user.id)).value
-		user.softDelete(Instant.parse("2026-07-15T01:00:00Z"))
-		userRepository.saveAndFlush(user)
-		entityManager.clear()
+	// Identity 분리 후 travel 필터는 DB 존재 확인을 하지 않는다(서명 검증만) — 탈퇴 사용자가
+	// 만료 전 토큰으로 잠시 더 접근 가능해지는 트레이드오프는 PoC 스코프에서 허용한다
+	// (AUTH_FORWARDING_CONTRACT.md). 따라서 "탈퇴 사용자 토큰 거부" 테스트는 더 이상 없다.
 
+	@Test
+	fun `malformed token is rejected as unauthorized`() {
 		mockMvc.get("/api/test/security/principal") {
-			header("Authorization", "Bearer $token")
+			header("Authorization", "Bearer not.a.valid.token")
 		}
 			.andExpect {
 				status { isUnauthorized() }
@@ -125,14 +119,7 @@ class JwtAuthenticationIntegrationTest(
 			}
 	}
 
-	private fun saveUser(): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "jwt-${UUID.randomUUID()}",
-			email = "jwt@example.com",
-			name = "JWT User",
-		),
-	)
+	private fun saveUser(): UUID = UUID.randomUUID()
 }
 
 data class AuthenticatedUserResponse(

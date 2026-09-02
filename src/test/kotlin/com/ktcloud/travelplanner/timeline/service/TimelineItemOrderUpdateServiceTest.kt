@@ -8,7 +8,6 @@ import com.ktcloud.travelplanner.timeline.repository.TimelineItemOrderRepository
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemOrderSnapshot
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -36,7 +35,7 @@ class TimelineItemOrderUpdateServiceTest {
 
 	@Test
 	fun `owner reverse maps the complete permutation to one bulk update`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		stubSnapshots(travel, snapshots(FIRST_ITEM_ID, SECOND_ITEM_ID, THIRD_ITEM_ID))
 
 		service.updateTimelineItemOrder(
@@ -65,7 +64,7 @@ class TimelineItemOrderUpdateServiceTest {
 			travelMemberRepository,
 			timelineItemOrderRepository,
 		)
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		val snapshots = (1..itemCount).map { visitOrder ->
 			TimelineItemOrderSnapshot(
 				itemId = UUID.nameUUIDFromBytes("sql-diagnostic-item-$itemCount-$visitOrder".toByteArray()),
@@ -97,7 +96,7 @@ class TimelineItemOrderUpdateServiceTest {
 
 	@Test
 	fun `canonical order returns without a repository write`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		stubSnapshots(travel, snapshots(FIRST_ITEM_ID, SECOND_ITEM_ID, THIRD_ITEM_ID))
 
 		service.updateTimelineItemOrder(
@@ -112,7 +111,7 @@ class TimelineItemOrderUpdateServiceTest {
 
 	@Test
 	fun `duplicate missing and another day item requests are rejected before writes`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		stubSnapshots(travel, snapshots(FIRST_ITEM_ID, SECOND_ITEM_ID))
 
 		listOf(
@@ -133,7 +132,7 @@ class TimelineItemOrderUpdateServiceTest {
 
 	@Test
 	fun `read only member is rejected while read write member can use canonical order`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(travelMemberRepository.existsAcceptedReadWriteMember(TRAVEL_ID, MEMBER_ID))
 			.thenReturn(false, true)
@@ -171,13 +170,9 @@ class TimelineItemOrderUpdateServiceTest {
 			items = items.map { (itemId, visitOrder) -> TimelineItemOrderUpdate(itemId, visitOrder) },
 		)
 
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-	}
-
-	private fun travel(owner: User): Travel = Travel(
+	private fun travel(ownerId: UUID = OWNER_ID): Travel = Travel(
 		id = TRAVEL_ID,
-		owner = owner,
+		ownerId = ownerId,
 		title = "타임라인 순서 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-03"),

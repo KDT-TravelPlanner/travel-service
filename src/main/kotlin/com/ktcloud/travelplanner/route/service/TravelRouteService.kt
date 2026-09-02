@@ -333,7 +333,7 @@ class TravelRouteService(
         requesterId: UUID,
     ) {
         if (
-            travel.owner.id ==
+            travel.ownerId ==
             requesterId
         ) {
             return

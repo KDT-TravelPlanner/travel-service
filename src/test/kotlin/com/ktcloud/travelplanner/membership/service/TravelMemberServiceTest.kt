@@ -8,7 +8,8 @@ import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.User
+import com.ktcloud.travelplanner.membership.port.MembershipUserDisplay
+import com.ktcloud.travelplanner.membership.port.MembershipUserPort
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.ArgumentMatchers.any
@@ -25,7 +26,13 @@ import kotlin.test.assertEquals
 class TravelMemberServiceTest {
 	private val travelRepository = mock(TravelRepository::class.java)
 	private val travelMemberRepository = mock(TravelMemberRepository::class.java)
-	private val service = TravelMemberService(travelRepository, travelMemberRepository)
+	private val membershipUserPort = mock(MembershipUserPort::class.java)
+	private val service = TravelMemberService(travelRepository, travelMemberRepository, membershipUserPort)
+
+	init {
+		`when`(membershipUserPort.findDisplay(MEMBER_ID))
+			.thenReturn(MembershipUserDisplay(MEMBER_ID, "member", null, deleted = false))
+	}
 
 	@Test
 	fun `accepted member leaves travel`() {
@@ -62,7 +69,7 @@ class TravelMemberServiceTest {
 		val travel = travel()
 		val pendingMember = TravelMember(
 			travel = travel,
-			user = mockUser(MEMBER_ID),
+			userId = MEMBER_ID,
 			role = TravelRole.READ_ONLY,
 			invitedAt = INVITED_AT,
 		)
@@ -95,7 +102,7 @@ class TravelMemberServiceTest {
 		val travel = travel()
 		val pendingMember = TravelMember(
 			travel = travel,
-			user = mockUser(MEMBER_ID),
+			userId = MEMBER_ID,
 			role = TravelRole.READ_ONLY,
 			invitedAt = INVITED_AT,
 		)
@@ -166,7 +173,7 @@ class TravelMemberServiceTest {
 		val travel = travel()
 		val pendingMember = TravelMember(
 			travel = travel,
-			user = mockUser(MEMBER_ID),
+			userId = MEMBER_ID,
 			role = TravelRole.READ_ONLY,
 			invitedAt = INVITED_AT,
 		)
@@ -188,7 +195,7 @@ class TravelMemberServiceTest {
 
 	private fun acceptedMember(travel: Travel): TravelMember = TravelMember(
 		travel = travel,
-		user = mockUser(MEMBER_ID),
+		userId = MEMBER_ID,
 		role = TravelRole.READ_ONLY,
 		invitedAt = INVITED_AT,
 	).also {
@@ -197,16 +204,11 @@ class TravelMemberServiceTest {
 
 	private fun travel(): Travel = Travel(
 		id = TRAVEL_ID,
-		owner = mockUser(OWNER_ID),
+		ownerId = OWNER_ID,
 		title = "권한 변경 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-02"),
 	)
-
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-		`when`(it.nickname).thenReturn("member")
-	}
 
 	companion object {
 		private val TRAVEL_ID = UUID.fromString("00000000-0000-0000-0000-000000000033")

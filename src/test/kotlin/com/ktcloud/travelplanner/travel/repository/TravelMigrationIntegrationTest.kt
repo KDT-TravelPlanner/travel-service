@@ -77,33 +77,11 @@ class TravelMigrationIntegrationTest : ContainerIntegrationTestSupport() {
 	}
 
 	@Test
-	fun `foreign key and date constraints reject invalid planner rows`() {
+	fun `date constraints reject invalid planner rows`() {
 		val now = OffsetDateTime.of(2026, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)
 
-		assertThrows<DataIntegrityViolationException> {
-			jdbcTemplate.update(
-				"INSERT INTO planners_table " +
-					"(id, owner_id, title, start_date, end_date, created_at, updated_at) " +
-					"VALUES (?, ?, ?, ?, ?, ?, ?)",
-				UUID.randomUUID(),
-				UUID.randomUUID(),
-				"소유자 없음",
-				java.sql.Date.valueOf("2026-08-01"),
-				java.sql.Date.valueOf("2026-08-04"),
-				now,
-				now,
-			)
-		}
-
+		// V20 이후 owner_id는 Identity 사용자 UUID일 뿐 user_table FK가 없다 — 임의 UUID 삽입 허용.
 		val ownerId = UUID.randomUUID()
-		jdbcTemplate.update(
-			"INSERT INTO user_table (id, provider, provider_user_id, profile_completed, created_at, updated_at) " +
-				"VALUES (?, 'GOOGLE', ?, FALSE, ?, ?)",
-			ownerId,
-			"migration-owner-$ownerId",
-			now,
-			now,
-		)
 		assertThrows<DataIntegrityViolationException> {
 			jdbcTemplate.update(
 				"INSERT INTO planners_table " +

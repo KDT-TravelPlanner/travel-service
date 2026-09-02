@@ -11,9 +11,9 @@ import com.ktcloud.travelplanner.membership.dto.TravelInvitationStatusResponse
 import com.ktcloud.travelplanner.membership.model.InvitationStatus
 import com.ktcloud.travelplanner.membership.model.TravelInvitationAction
 import com.ktcloud.travelplanner.membership.model.TravelMember
+import com.ktcloud.travelplanner.membership.port.MembershipUserPort
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -26,7 +26,7 @@ import java.util.UUID
 class TravelInvitationService(
 	private val travelRepository: TravelRepository,
 	private val travelMemberRepository: TravelMemberRepository,
-	private val userLookupPort: UserLookupPort,
+	private val membershipUserPort: MembershipUserPort,
 	@Qualifier("utcClock") private val clock: Clock,
 ) {
 	@Transactional
@@ -40,7 +40,7 @@ class TravelInvitationService(
 		if (invitation.travel.id != travelId) {
 			throw TravelInvitationNotFoundException()
 		}
-		if (invitation.travel.owner.id != requesterId) {
+		if (invitation.travel.ownerId != requesterId) {
 			throw InvitationAccessDeniedException()
 		}
 		if (invitation.status != InvitationStatus.PENDING) {
@@ -57,7 +57,7 @@ class TravelInvitationService(
 	): TravelInvitationStatusResponse {
 		val invitation = travelMemberRepository.findByIdForUpdate(invitationId)
 			.orElseThrow(::TravelInvitationNotFoundException)
-		if (invitation.user.id != userId) {
+		if (invitation.userId != userId) {
 			throw InvitationAccessDeniedException()
 		}
 		if (invitation.status != InvitationStatus.PENDING) {
@@ -86,7 +86,12 @@ class TravelInvitationService(
 				userId = userId,
 				status = status,
 				pageable = PageRequest.of(page, size),
-			).map(ReceivedTravelInvitationResponse::from),
+			).map { invitation ->
+				ReceivedTravelInvitationResponse.from(
+					invitation,
+					inviter = membershipUserPort.findDisplay(invitation.travel.ownerId),
+				)
+			},
 		)
 
 	@Transactional
@@ -96,13 +101,12 @@ class TravelInvitationService(
 		request: TravelInvitationCreateRequest,
 	): TravelInvitationCreateResponse {
 		val travel = travelRepository.findById(travelId).orElseThrow(::InvitationTravelNotFoundException)
-		if (travel.owner.id != inviterId) {
+		if (travel.ownerId != inviterId) {
 			throw InvitationAccessDeniedException()
 		}
 
-		val invitee = userLookupPort.findByNickname(request.nickname)
+		val inviteeId = membershipUserPort.findByNickname(request.nickname)?.userId
 			?: throw InvitationTargetNotFoundException()
-		val inviteeId = requireNotNull(invitee.id)
 		if (inviteeId == inviterId) {
 			throw SelfInvitationException()
 		}
@@ -112,7 +116,7 @@ class TravelInvitationService(
 
 		val member = TravelMember(
 			travel = travel,
-			user = invitee,
+			userId = inviteeId,
 			role = request.role,
 			invitedAt = Instant.now(clock),
 		)

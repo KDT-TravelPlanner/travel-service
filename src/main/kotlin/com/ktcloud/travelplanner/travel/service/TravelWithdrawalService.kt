@@ -30,7 +30,7 @@ class TravelWithdrawalService(
 				.findOwnershipTransferCandidates(travel.id)
 				.firstOrNull()
 				?: return@forEach
-			travel.transferOwnership(candidate.user)
+			travel.transferOwnership(candidate.userId)
 			travelMemberRepository.delete(candidate)
 		}
 	}

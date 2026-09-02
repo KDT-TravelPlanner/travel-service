@@ -1,12 +1,9 @@
 package com.ktcloud.travelplanner.global.security
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import jakarta.servlet.FilterChain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
@@ -30,10 +27,8 @@ class JwtAuthenticationFilterTest {
 		),
 		Clock.fixed(now, ZoneOffset.UTC),
 	)
-	private val userLookupPort = mock(UserLookupPort::class.java)
 	private val filter = JwtAuthenticationFilter(
 		tokenService,
-		userLookupPort,
 		ApiSecurityErrorHandler(jacksonObjectMapper()),
 	)
 
@@ -43,9 +38,8 @@ class JwtAuthenticationFilterTest {
 	}
 
 	@Test
-	fun `injects authenticated user principal for valid active user`() {
+	fun `injects authenticated user principal for a validly signed token`() {
 		val accessToken = tokenService.issueAccessToken(userId).value
-		`when`(userLookupPort.existsById(userId)).thenReturn(true)
 		val request = requestWithBearer(accessToken)
 		val response = MockHttpServletResponse()
 		var invoked = false
@@ -61,14 +55,12 @@ class JwtAuthenticationFilterTest {
 	}
 
 	@Test
-	fun `rejects valid token when user is deleted or absent`() {
-		val accessToken = tokenService.issueAccessToken(userId).value
-		`when`(userLookupPort.existsById(userId)).thenReturn(false)
+	fun `rejects a token that is not validly signed`() {
 		val response = MockHttpServletResponse()
 		var invoked = false
 
 		filter.doFilter(
-			requestWithBearer(accessToken),
+			requestWithBearer("not.a.valid.token"),
 			response,
 			FilterChain { _, _ -> invoked = true },
 		)

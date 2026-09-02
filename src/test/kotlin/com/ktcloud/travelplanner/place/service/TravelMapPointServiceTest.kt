@@ -10,7 +10,6 @@ import com.ktcloud.travelplanner.timeline.model.TimelineItem
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -235,7 +234,7 @@ class TravelMapPointServiceTest {
 
 	private fun travel(ownerId: UUID): Travel = Travel(
 		id = TRAVEL_ID,
-		owner = mockUser(ownerId),
+		ownerId = ownerId,
 		title = "지도 여행",
 		startDate = LocalDate.parse("2026-08-01"),
 		endDate = LocalDate.parse("2026-08-03"),
@@ -258,10 +257,6 @@ class TravelMapPointServiceTest {
 		googlePlaceId = googlePlaceId,
 		visitOrder = visitOrder,
 	)
-
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-	}
 
 	companion object {
 		private val TRAVEL_ID = UUID.fromString("00000000-0000-0000-0000-000000000122")

@@ -10,7 +10,6 @@ import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.PlannerPurposeRepository
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.User
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -36,7 +35,7 @@ class TravelDetailServiceTest {
 
 	@Test
 	fun `owner receives assembled detail with timeline`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		val timelineItem = TimelineItem(
 			travel = travel,
 			dayNumber = 1,
@@ -61,7 +60,7 @@ class TravelDetailServiceTest {
 
 	@Test
 	fun `accepted participants receive their current permission`() {
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findAllByTravelIdOrderByDayNumberAscVisitOrderAsc(TRAVEL_ID))
 			.thenReturn(emptyList())
@@ -81,7 +80,7 @@ class TravelDetailServiceTest {
 			service.getTravelDetail(TRAVEL_ID, MEMBER_ID)
 		}
 
-		val travel = travel(mockUser(OWNER_ID))
+		val travel = travel()
 		`when`(travelRepository.findById(TRAVEL_ID)).thenReturn(Optional.of(travel))
 		`when`(travelMemberRepository.findAcceptedRole(TRAVEL_ID, MEMBER_ID)).thenReturn(null)
 		assertThrows<TravelDetailAccessDeniedException> {
@@ -90,13 +89,9 @@ class TravelDetailServiceTest {
 		verifyNoInteractions(timelineItemRepository)
 	}
 
-	private fun mockUser(id: UUID): User = mock(User::class.java).also {
-		`when`(it.id).thenReturn(id)
-	}
-
-	private fun travel(owner: User): Travel = mock(Travel::class.java).also {
+	private fun travel(ownerId: UUID = OWNER_ID): Travel = mock(Travel::class.java).also {
 		`when`(it.id).thenReturn(TRAVEL_ID)
-		`when`(it.owner).thenReturn(owner)
+		`when`(it.ownerId).thenReturn(ownerId)
 		`when`(it.title).thenReturn("상세 여행")
 		`when`(it.startDate).thenReturn(LocalDate.parse("2026-08-01"))
 		`when`(it.endDate).thenReturn(LocalDate.parse("2026-08-03"))

@@ -3,7 +3,6 @@ package com.ktcloud.travelplanner
 import com.ktcloud.travelplanner.global.security.ApiSecurityErrorHandler
 import com.ktcloud.travelplanner.global.security.JwtTokenService
 import com.ktcloud.travelplanner.global.security.SecurityConfig
-import com.ktcloud.travelplanner.travel.port.UserLookupPort
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,9 +23,6 @@ class PingControllerIntegrationTest(
 ) {
 	@MockitoBean
 	private lateinit var jwtTokenService: JwtTokenService
-
-	@MockitoBean
-	private lateinit var userLookupPort: UserLookupPort
 
 	@Test
 	fun `ping keeps its endpoint and returns TravelPlanner application name`() {

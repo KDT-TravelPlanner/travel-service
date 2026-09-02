@@ -52,7 +52,7 @@ class TimelineItemDeleteService(
                 travel: Travel,
                 requesterId: UUID,
         ) {
-                if (travel.owner.id == requesterId) return
+                if (travel.ownerId == requesterId) return
                 if (!travelMemberRepository.existsAcceptedReadWriteMember(travel.id, requesterId)) {
                         throw TimelineItemDeleteAccessDeniedException()
                 }

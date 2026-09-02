@@ -7,9 +7,6 @@ import com.ktcloud.travelplanner.timeline.model.TimelineItem
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
 import com.ktcloud.travelplanner.travel.model.Travel
 import com.ktcloud.travelplanner.travel.repository.TravelRepository
-import com.ktcloud.travelplanner.user.model.OAuthProvider
-import com.ktcloud.travelplanner.user.model.User
-import com.ktcloud.travelplanner.user.repository.UserRepository
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.hibernate.SessionFactory
@@ -38,7 +35,6 @@ import kotlin.test.assertEquals
 @Transactional
 class TimelineItemOrderSqlBehaviorIntegrationTest(
 	@Autowired private val mockMvc: MockMvc,
-	@Autowired private val userRepository: UserRepository,
 	@Autowired private val travelRepository: TravelRepository,
 	@Autowired private val timelineItemRepository: TimelineItemRepository,
 	@Autowired private val jwtTokenService: JwtTokenService,
@@ -80,9 +76,9 @@ class TimelineItemOrderSqlBehaviorIntegrationTest(
 		prepareStatementCount = statistics.prepareStatementCount,
 	)
 
-	private fun patchOrder(travel: Travel, owner: User, body: String) =
+	private fun patchOrder(travel: Travel, owner: UUID, body: String) =
 		mockMvc.patch("/api/v1/travels/${travel.id}/timeline-items/order") {
-			header(HttpHeaders.AUTHORIZATION, "Bearer ${jwtTokenService.issueAccessToken(requireNotNull(owner.id)).value}")
+			header(HttpHeaders.AUTHORIZATION, "Bearer ${jwtTokenService.issueAccessToken(owner).value}")
 			contentType = MediaType.APPLICATION_JSON
 			content = body
 		}
@@ -111,21 +107,16 @@ class TimelineItemOrderSqlBehaviorIntegrationTest(
 			)
 		}
 
-	private fun saveTravel(owner: User, suffix: String): Travel = travelRepository.saveAndFlush(
+	private fun saveTravel(ownerId: UUID, suffix: String): Travel = travelRepository.saveAndFlush(
 		Travel(
-			owner = owner,
+			ownerId = ownerId,
 			title = "SQL diagnostics $suffix",
 			startDate = LocalDate.parse("2026-08-01"),
 			endDate = LocalDate.parse("2026-08-03"),
 		),
 	)
 
-	private fun saveUser(nickname: String): User = userRepository.saveAndFlush(
-		User(
-			provider = OAuthProvider.GOOGLE,
-			providerUserId = "sql-diagnostic-${UUID.randomUUID()}",
-		).also { it.completeProfile(nickname, null, null) },
-	)
+	private fun saveUser(nickname: String): UUID = UUID.randomUUID()
 
 	private data class Snapshot(
 		val entityUpdateCount: Long,
