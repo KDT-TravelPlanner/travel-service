@@ -5,11 +5,6 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/travel_diary_dev}
     username: ${SPRING_DATASOURCE_USERNAME:travel_diary}
     password: ${SPRING_DATASOURCE_PASSWORD:travel_diary_password}
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
-      password: ${SPRING_DATA_REDIS_PASSWORD:travel_diary_redis_password}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -65,20 +60,11 @@ management:
       application: ${spring.application.name}
 
 app:
+  external:
+    maps:
+      base-url: ${MAPS_SERVICE_BASE_URL:http://localhost:8082}
   logging:
     error-frame-limit: 5
-  external:
-    google:
-      places:
-        api-key: ${GOOGLE_MAPS_API_KEY:}
-        base-url: ${GOOGLE_PLACES_BASE_URL:https://places.googleapis.com}
-        connect-timeout: ${GOOGLE_PLACES_CONNECT_TIMEOUT:2s}
-        read-timeout: ${GOOGLE_PLACES_READ_TIMEOUT:3s}
-      routes:
-        api-key: ${GOOGLE_MAPS_API_KEY:}
-        base-url: ${GOOGLE_ROUTES_BASE_URL:https://routes.googleapis.com}
-        connect-timeout: ${GOOGLE_ROUTES_CONNECT_TIMEOUT:2s}
-        read-timeout: ${GOOGLE_ROUTES_READ_TIMEOUT:5s}
   storage:
     profile-image:
       enabled: ${PROFILE_IMAGE_STORAGE_ENABLED:false}
