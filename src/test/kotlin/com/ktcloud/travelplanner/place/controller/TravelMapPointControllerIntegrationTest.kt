@@ -92,8 +92,8 @@ class TravelMapPointControllerIntegrationTest(
 			}
 
 		getMapPoints(travel, owner, 1).andExpect { status { isOk() } }
-		verify(placeLocationPort, times(1)).findLocation(firstPlaceId)
-		verify(placeLocationPort, times(1)).findLocation(secondPlaceId)
+		verify(placeLocationPort, times(2)).findLocation(firstPlaceId)
+		verify(placeLocationPort, times(2)).findLocation(secondPlaceId)
 		verify(placeLocationPort, times(2)).findLocation(missingPlaceId)
 	}
 

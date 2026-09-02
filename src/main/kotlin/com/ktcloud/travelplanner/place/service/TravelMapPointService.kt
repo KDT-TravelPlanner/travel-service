@@ -4,6 +4,7 @@ import com.ktcloud.travelplanner.global.exception.DomainException
 import com.ktcloud.travelplanner.global.exception.ErrorCode
 import com.ktcloud.travelplanner.maps.port.MapsTravelAccessPort
 import com.ktcloud.travelplanner.maps.port.MapsTravelReference
+import com.ktcloud.travelplanner.place.port.PlaceLocationPort
 import com.ktcloud.travelplanner.place.dto.TravelMapPointResponse
 import com.ktcloud.travelplanner.place.dto.TravelMapPointsResponse
 import com.ktcloud.travelplanner.timeline.repository.TimelineItemRepository
@@ -18,17 +19,17 @@ import java.util.UUID
 class TravelMapPointService @Autowired constructor(
         private val mapsTravelAccessPort: MapsTravelAccessPort,
         private val timelineItemRepository: TimelineItemRepository,
-        private val placeLocationService: PlaceLocationService,
+        private val placeLocationPort: PlaceLocationPort,
 ) {
         constructor(
                 travelRepository: TravelRepository,
                 travelMemberRepository: TravelMemberRepository,
                 timelineItemRepository: TimelineItemRepository,
-                placeLocationService: PlaceLocationService,
+                placeLocationPort: PlaceLocationPort,
         ) : this(
                 LegacyMapsTravelAccessAdapter(travelRepository, travelMemberRepository),
                 timelineItemRepository,
-                placeLocationService,
+                placeLocationPort,
         )
         @Transactional(readOnly = true)
         fun getMapPoints(
@@ -62,7 +63,7 @@ class TravelMapPointService @Autowired constructor(
                                 return@forEach
                         }
 
-                        val location = placeLocationService.getLocation(googlePlaceId)
+                        val location = placeLocationPort.findLocation(googlePlaceId)
 
                         if (location == null) {
                                 unresolvedTimelineItemIds += timelineItem.id

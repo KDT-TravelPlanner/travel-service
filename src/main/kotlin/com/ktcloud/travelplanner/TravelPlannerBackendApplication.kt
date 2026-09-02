@@ -1,8 +1,7 @@
 package com.ktcloud.travelplanner
 
 import com.ktcloud.travelplanner.global.security.JwtProperties
-import com.ktcloud.travelplanner.place.config.GooglePlacesProperties
-import com.ktcloud.travelplanner.route.config.GoogleRoutesProperties
+import com.ktcloud.travelplanner.maps.adapter.MapsClientProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
@@ -10,8 +9,7 @@ import org.springframework.boot.runApplication
 @SpringBootApplication
 @EnableConfigurationProperties(
 	JwtProperties::class,
-	GooglePlacesProperties::class,
-	GoogleRoutesProperties::class,
+	MapsClientProperties::class,
 )
 class TravelPlannerBackendApplication
 

@@ -3,6 +3,7 @@ package com.ktcloud.travelplanner.place.service
 import com.ktcloud.travelplanner.membership.model.TravelRole
 import com.ktcloud.travelplanner.membership.repository.TravelMemberRepository
 import com.ktcloud.travelplanner.place.port.PlaceLocation
+import com.ktcloud.travelplanner.place.port.PlaceLocationPort
 import com.ktcloud.travelplanner.testsupport.TestFixtures
 import com.ktcloud.travelplanner.timeline.model.TimelineCategory
 import com.ktcloud.travelplanner.timeline.model.TimelineItem
@@ -25,13 +26,13 @@ class TravelMapPointServiceTest {
 	private val travelRepository = mock(TravelRepository::class.java)
 	private val travelMemberRepository = mock(TravelMemberRepository::class.java)
 	private val timelineItemRepository = mock(TimelineItemRepository::class.java)
-	private val placeLocationService = mock(PlaceLocationService::class.java)
+	private val placeLocationPort = mock(PlaceLocationPort::class.java)
 
 	private val service = TravelMapPointService(
 		travelRepository,
 		travelMemberRepository,
 		timelineItemRepository,
-		placeLocationService,
+		placeLocationPort,
 	)
 
 	@Test
@@ -66,16 +67,16 @@ class TravelMapPointServiceTest {
 			.thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findAllByTravelIdOrderByDayNumberAscVisitOrderAsc(TRAVEL_ID))
 			.thenReturn(listOf(first, unmapped, unresolved, fourth))
-		`when`(placeLocationService.getLocation("place-1"))
+		`when`(placeLocationPort.findLocation("place-1"))
 			.thenReturn(
 				PlaceLocation(
 					BigDecimal("35.658581"),
 					BigDecimal("139.745433"),
 				),
 			)
-		`when`(placeLocationService.getLocation("place-missing"))
+		`when`(placeLocationPort.findLocation("place-missing"))
 			.thenReturn(null)
-		`when`(placeLocationService.getLocation("place-4"))
+		`when`(placeLocationPort.findLocation("place-4"))
 			.thenReturn(
 				PlaceLocation(
 					BigDecimal("35.681236"),
@@ -134,14 +135,14 @@ class TravelMapPointServiceTest {
 			.thenReturn(Optional.of(travel))
 		`when`(timelineItemRepository.findAllByTravelIdOrderByDayNumberAscVisitOrderAsc(TRAVEL_ID))
 			.thenReturn(listOf(unassigned, assigned, otherDay))
-		`when`(placeLocationService.getLocation("place-assigned"))
+		`when`(placeLocationPort.findLocation("place-assigned"))
 			.thenReturn(
 				PlaceLocation(
 					BigDecimal("37.565804"),
 					BigDecimal("126.975146"),
 				),
 			)
-		`when`(placeLocationService.getLocation("place-unassigned"))
+		`when`(placeLocationPort.findLocation("place-unassigned"))
 			.thenReturn(
 				PlaceLocation(
 					BigDecimal("37.573714"),
@@ -174,7 +175,7 @@ class TravelMapPointServiceTest {
 		assertEquals(emptyList(), response.points)
 		assertEquals(emptyList(), response.unmappedTimelineItemIds)
 		assertEquals(emptyList(), response.unresolvedTimelineItemIds)
-		verifyNoInteractions(placeLocationService)
+		verifyNoInteractions(placeLocationPort)
 	}
 
 	@Test
@@ -189,7 +190,7 @@ class TravelMapPointServiceTest {
 		verifyNoInteractions(
 			travelMemberRepository,
 			timelineItemRepository,
-			placeLocationService,
+			placeLocationPort,
 		)
 	}
 
@@ -208,7 +209,7 @@ class TravelMapPointServiceTest {
 
 		verifyNoInteractions(
 			timelineItemRepository,
-			placeLocationService,
+			placeLocationPort,
 		)
 	}
 
@@ -228,7 +229,7 @@ class TravelMapPointServiceTest {
 
 		verifyNoInteractions(
 			timelineItemRepository,
-			placeLocationService,
+			placeLocationPort,
 		)
 	}
 
