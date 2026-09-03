@@ -1,5 +1,7 @@
 .gradle
-build
+build/*
+!build/libs/
+!build/libs/app.jar
 .kotlin
 .git
 .gitignore
@@ -7,3 +9,8 @@ build
 .idea
 *.iml
 HELP.md
+src
+docs
+README.md
+*.log
+logs
