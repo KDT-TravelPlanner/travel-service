@@ -1,4 +1,4 @@
-name: Build
+name: Travel 도커 이미지 및 HTTP Adapter 검증
 
 on:
   pull_request:
@@ -12,9 +12,29 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: travel-docker-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: travel_diary_dev
+          POSTGRES_USER: travel_diary
+          POSTGRES_PASSWORD: travel_diary_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U travel_diary -d travel_diary_dev"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Check out source
@@ -29,8 +49,61 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Build
+      - name: 1단계 단위 테스트
         env:
           GITHUB_PACKAGES_USER: ${{ secrets.COMMON_PACKAGES_USER }}
           GITHUB_PACKAGES_TOKEN: ${{ secrets.COMMON_PACKAGES_TOKEN }}
-        run: ./gradlew clean build
+        run: ./gradlew clean test --no-daemon
+
+      - name: 2단계 통합 테스트
+        env:
+          GITHUB_PACKAGES_USER: ${{ secrets.COMMON_PACKAGES_USER }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.COMMON_PACKAGES_TOKEN }}
+        run: ./gradlew integrationTest --no-daemon
+
+      - name: 3단계 HTTP Adapter 테스트
+        env:
+          GITHUB_PACKAGES_USER: ${{ secrets.COMMON_PACKAGES_USER }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.COMMON_PACKAGES_TOKEN }}
+        run: >-
+          ./gradlew test --no-daemon
+          --tests 'com.ktcloud.travelplanner.maps.adapter.HttpMapsAdapterTest'
+          --tests 'com.ktcloud.travelplanner.maps.adapter.MapsOutgoingHeadersTest'
+          --tests 'com.ktcloud.travelplanner.membership.adapter.HttpMembershipUserAdapterTest'
+
+      - name: 애플리케이션 JAR 생성
+        run: ./gradlew bootJar --no-daemon
+
+      - name: 4단계 도커 이미지 빌드
+        run: docker build --tag travel-service:ci .
+
+      - name: 5-6단계 도커 컨테이너 기동 및 Health 검증
+        run: |
+          set -euo pipefail
+          docker run -d --name travel-service-ci --network host \
+            -e SPRING_PROFILES_ACTIVE=dev \
+            -e JWT_SECRET=ci-only-jwt-secret-with-at-least-32-bytes \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/travel_diary_dev \
+            -e SPRING_DATASOURCE_USERNAME=travel_diary \
+            -e SPRING_DATASOURCE_PASSWORD=travel_diary_password \
+            -e SERVER_PORT=18081 \
+            -e MANAGEMENT_SERVER_PORT=19091 \
+            -e LOGGING_FILE_NAME=/var/log/travel-planner/travel-planner.log \
+            travel-service:ci
+
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:19091/actuator/health/readiness; then
+              echo
+              curl --fail --silent http://127.0.0.1:18081/api/ping
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs travel-service-ci
+          exit 1
+
+      - name: 도커 컨테이너 정리
+        if: always()
+        run: docker rm -f travel-service-ci 2>/dev/null || true
