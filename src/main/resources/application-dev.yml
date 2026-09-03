@@ -1,6 +1,6 @@
 logging:
   file:
-    name: ${LOGGING_FILE_NAME:/var/log/travel-planner/travel-planner.log}
+    name: ${LOGGING_FILE_NAME:logs/travel-planner.log}
   structured:
     format:
       file: ecs
