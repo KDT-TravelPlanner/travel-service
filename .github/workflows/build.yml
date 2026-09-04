@@ -5,7 +5,7 @@ on:
     branches: [develop]
   push:
     branches:
-      - develop
+      - "fix/**"
       - "SCRUM-*"
 
 permissions:
@@ -65,11 +65,7 @@ jobs:
         env:
           GITHUB_PACKAGES_USER: ${{ secrets.COMMON_PACKAGES_USER }}
           GITHUB_PACKAGES_TOKEN: ${{ secrets.COMMON_PACKAGES_TOKEN }}
-        run: >-
-          ./gradlew test --no-daemon
-          --tests 'com.ktcloud.travelplanner.maps.adapter.HttpMapsAdapterTest'
-          --tests 'com.ktcloud.travelplanner.maps.adapter.MapsOutgoingHeadersTest'
-          --tests 'com.ktcloud.travelplanner.membership.adapter.HttpMembershipUserAdapterTest'
+        run: ./gradlew adapterTest --no-daemon
 
       - name: 애플리케이션 JAR 생성
         run: ./gradlew bootJar --no-daemon
@@ -81,7 +77,7 @@ jobs:
         run: |
           set -euo pipefail
           docker run -d --name travel-service-ci --network host \
-            -e SPRING_PROFILES_ACTIVE=dev \
+            -e SPRING_PROFILES_ACTIVE=prod \
             -e JWT_SECRET=ci-only-jwt-secret-with-at-least-32-bytes \
             -e SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/travel_diary_dev \
             -e SPRING_DATASOURCE_USERNAME=travel_diary \
