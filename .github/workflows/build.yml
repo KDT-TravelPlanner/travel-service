@@ -92,20 +92,18 @@ jobs:
         run: |
           set -euo pipefail
           docker run -d --name travel-service-ci \
-            --add-host host.docker.internal:host-gateway \
-            -p 18081:8080 \
-            -p 19091:9091 \
+            --network host \
             -e SPRING_PROFILES_ACTIVE=prod \
             -e JWT_ISSUER=identity-service \
             -e JWT_SECRET=ci-only-jwt-secret-with-at-least-32-bytes \
-            -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/travel_diary_dev \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/travel_diary_dev \
             -e SPRING_DATASOURCE_USERNAME=travel_diary \
             -e SPRING_DATASOURCE_PASSWORD=travel_diary_password \
             -e LOGGING_FILE_NAME=/var/log/travel-planner/travel-planner.log \
             travel-service:ci
 
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:19091/actuator/health/readiness >/dev/null 2>&1; then
+            if curl --fail --silent http://127.0.0.1:9091/actuator/health/readiness >/dev/null 2>&1; then
               break
             fi
             if [ "${attempt}" -eq 60 ]; then
@@ -115,11 +113,11 @@ jobs:
             sleep 2
           done
 
-          curl --fail --silent http://127.0.0.1:19091/actuator/health \
+          curl --fail --silent http://127.0.0.1:9091/actuator/health \
             | jq --exit-status '.status == "UP"' >/dev/null
-          curl --fail --silent http://127.0.0.1:19091/actuator/health/readiness \
+          curl --fail --silent http://127.0.0.1:9091/actuator/health/readiness \
             | jq --exit-status '.status == "UP"' >/dev/null
-          curl --fail --silent http://127.0.0.1:18081/api/ping \
+          curl --fail --silent http://127.0.0.1:8080/api/ping \
             | jq --exit-status '.status == "ok" and .profile == "prod"' >/dev/null
 
       - name: 컨테이너 재시작 여부 확인
