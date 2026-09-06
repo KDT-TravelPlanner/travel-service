@@ -5,6 +5,9 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/travel_diary_dev}
     username: ${SPRING_DATASOURCE_USERNAME:travel_diary}
     password: ${SPRING_DATASOURCE_PASSWORD:travel_diary_password}
+    hikari:
+      # 네이티브 쿼리는 hibernate.default_schema를 무시하므로 커넥션 레벨에서 search_path를 고정한다.
+      connection-init-sql: SET search_path TO travel
   flyway:
     create-schemas: true
     default-schema: travel
@@ -18,6 +21,7 @@ spring:
       hibernate:
         format_sql: false
         use_sql_comments: false
+        default_schema: travel
   lifecycle:
     timeout-per-shutdown-phase: 20s
   devtools:
