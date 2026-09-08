@@ -1,6 +1,7 @@
 name: Travel 도커 이미지 및 HTTP Adapter 검증
 
 on:
+  workflow_call:
   pull_request:
     branches: [develop, main]
   push:
