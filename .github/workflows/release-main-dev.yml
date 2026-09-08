@@ -1,0 +1,27 @@
+name: Travel Main Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: travel-main-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify Travel Release Candidate
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  publish:
+    name: Publish Travel Image to ECR
+    needs: verify
+    if: needs.verify.result == 'success'
+    uses: ./.github/workflows/publish-ecr.yml
+    secrets: inherit
