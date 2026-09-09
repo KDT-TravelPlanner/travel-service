@@ -63,9 +63,26 @@ jobs:
       - name: Build and push immutable image
         id: image
         env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
           ECR_REPOSITORY_URL: ${{ vars.ECR_REPOSITORY_URL }}
         run: |
           set -euo pipefail
+          repository_name="${ECR_REPOSITORY_URL#*/}"
+
+          # ECR tags are immutable. Make a re-run idempotent when this commit
+          # was already published successfully.
+          existing_digest="$(aws ecr describe-images \
+            --region "${AWS_REGION}" \
+            --repository-name "${repository_name}" \
+            --image-ids imageTag="${GITHUB_SHA}" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)"
+          if [ -n "${existing_digest}" ] && [ "${existing_digest}" != "None" ]; then
+            echo "Image tag ${GITHUB_SHA} already exists; reusing digest ${existing_digest}."
+            echo "image_uri=${ECR_REPOSITORY_URL}@${existing_digest}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
           image_uri="${ECR_REPOSITORY_URL}:${GITHUB_SHA}"
           docker buildx build \
             --platform linux/amd64 \
@@ -74,8 +91,8 @@ jobs:
             --provenance=false \
             --metadata-file "${RUNNER_TEMP}/travel-image-metadata.json" \
             .
-          repository_name="${ECR_REPOSITORY_URL#*/}"
           digest="$(aws ecr describe-images \
+            --region "${AWS_REGION}" \
             --repository-name "${repository_name}" \
             --image-ids imageTag="${GITHUB_SHA}" \
             --query 'imageDetails[0].imageDigest' \
