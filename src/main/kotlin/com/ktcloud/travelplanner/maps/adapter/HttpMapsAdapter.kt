@@ -7,6 +7,7 @@ import com.ktcloud.travelplanner.place.port.PlaceLocationPort
 import com.ktcloud.travelplanner.route.model.TransportationType
 import com.ktcloud.travelplanner.route.port.RouteCalculation
 import com.ktcloud.travelplanner.route.port.RouteCalculationPort
+import com.ktcloud.travelplanner.route.port.RouteCalculationWaypoint
 import com.ktcloud.travelplanner.route.port.RouteLegCalculation
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
@@ -44,8 +45,17 @@ class HttpMapsAdapter(
 			response.legs.map { RouteLegCalculation(it.distanceMeters, it.durationSeconds) }, response.warnings)
 	}
 
-	override fun calculatePreviewRoute(waypoints: List<com.ktcloud.travelplanner.route.port.RouteCalculationWaypoint>): RouteCalculation =
-		throw UnsupportedOperationException("Maps preview HTTP contract is not available yet.")
+	override fun calculatePreviewRoute(waypoints: List<RouteCalculationWaypoint>): RouteCalculation {
+		val response = try {
+			client.post().uri("/internal/v1/maps/routes/preview")
+				.headers { it.applyIncomingRequestContext() }
+				.body(HttpRoutePreviewRequest(waypoints.map { HttpRoutePreviewWaypoint(it.googlePlaceId, it.latitude, it.longitude) }))
+				.retrieve().body(HttpRouteCalculationResponse::class.java)
+		} catch (exception: RestClientException) {
+			throw MapsServiceUnavailableException(cause = exception)
+		} ?: throw MapsServiceUnavailableException()
+		return response.toRouteCalculation()
+	}
 
 }
 
@@ -68,6 +78,17 @@ class HttpMapsPlaceLocationAdapter(
 }
 
 data class HttpRouteCalculationRequest(val googlePlaceIds: List<String>, val transportationType: TransportationType)
+data class HttpRoutePreviewRequest(val waypoints: List<HttpRoutePreviewWaypoint>)
+data class HttpRoutePreviewWaypoint(val googlePlaceId: String, val latitude: Double, val longitude: Double)
 data class HttpRouteCalculationResponse(val encodedPolyline: String?, val encodedPolylines: List<String>, val totalDistanceMeters: Long, val totalDurationSeconds: Long, val legs: List<HttpRouteLegResponse>, val warnings: List<String>)
 data class HttpRouteLegResponse(val distanceMeters: Long, val durationSeconds: Long)
 data class HttpPlaceLocationResponse(val latitude: String, val longitude: String)
+
+private fun HttpRouteCalculationResponse.toRouteCalculation() = RouteCalculation(
+	encodedPolyline = encodedPolyline,
+	encodedPolylines = encodedPolylines,
+	totalDistanceMeters = totalDistanceMeters,
+	totalDurationSeconds = totalDurationSeconds,
+	legs = legs.map { RouteLegCalculation(it.distanceMeters, it.durationSeconds) },
+	warnings = warnings,
+)
