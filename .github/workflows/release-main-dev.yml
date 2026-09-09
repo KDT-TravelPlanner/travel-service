@@ -23,6 +23,6 @@ jobs:
   publish:
     name: Publish Travel Image to ECR
     needs: verify
-    if: needs.verify.result == 'success'
+    if: needs.verify.result == 'success' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish-ecr.yml
     secrets: inherit
