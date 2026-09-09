@@ -3,6 +3,7 @@ package com.ktcloud.travelplanner.maps.adapter
 import com.ktcloud.travelplanner.common.logging.RequestId
 import com.ktcloud.travelplanner.global.logging.RequestLoggingContext
 import com.ktcloud.travelplanner.route.model.TransportationType
+import com.ktcloud.travelplanner.route.port.RouteCalculationWaypoint
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpHeaders
@@ -53,6 +54,30 @@ class MapsOutgoingHeadersTest {
 
 		HttpMapsAdapter(builder, propsWithoutBuilderBaseUrl())
 			.calculateRoute(listOf("ChIJa", "ChIJb"), TransportationType.WALK)
+
+		server.verify()
+	}
+
+	@Test
+	fun `routes preview 호출에도 Authorization과 X-Request-Id를 그대로 싣는다`() {
+		givenIncomingRequest(BEARER_TOKEN, INCOMING_REQUEST_ID)
+		val (server, builder) = bind()
+		server.expect(requestTo("$BASE_URL/internal/v1/maps/routes/preview"))
+			.andExpect(header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN))
+			.andExpect(header(RequestId.HEADER_NAME, INCOMING_REQUEST_ID))
+			.andRespond(
+				withSuccess(
+					"""{"encodedPolyline":null,"encodedPolylines":[],"totalDistanceMeters":0,"totalDurationSeconds":0,"legs":[],"warnings":[]}""",
+					MediaType.APPLICATION_JSON,
+				),
+			)
+
+		HttpMapsAdapter(builder, propsWithoutBuilderBaseUrl()).calculatePreviewRoute(
+			listOf(
+				RouteCalculationWaypoint("ChIJa", 37.5, 127.0),
+				RouteCalculationWaypoint("ChIJb", 37.6, 127.1),
+			),
+		)
 
 		server.verify()
 	}
