@@ -23,6 +23,18 @@ jobs:
   publish:
     name: Publish Travel Image to ECR
     needs: verify
-    if: needs.verify.result == 'success' && github.ref == 'refs/heads/main'
+    if: needs.verify.result == 'success'
     uses: ./.github/workflows/publish-ecr.yml
     secrets: inherit
+
+  update-gitops:
+    name: Update GitOps repo
+    needs: publish
+    uses: KDT-TravelPlanner/travel-gitops/.github/workflows/update-gitops.yml@develop
+    secrets:
+      GITOPS_APP_ID: ${{ secrets.GITOPS_APP_ID }}
+      GITOPS_APP_PRIVATE_KEY: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+    with:
+      service-name: travel
+      image-ref: ${{ needs.publish.outputs.image_ref }}
+      deployment-patch-path: k8s/overlays/dev-eks/workload/travel/deployment.patch.yaml
