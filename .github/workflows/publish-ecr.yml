@@ -2,6 +2,10 @@ name: Travel ECR Publish
 
 on:
   workflow_call:
+    outputs:
+      image_ref:
+        description: Published immutable ECR image reference
+        value: ${{ jobs.publish.outputs.image_ref }}
 
 permissions:
   contents: read
@@ -10,6 +14,8 @@ permissions:
 jobs:
   publish:
     name: Build and Publish Travel Image
+    outputs:
+      image_ref: ${{ steps.image.outputs.image_uri }}
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 20
